@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarDays,
@@ -14,10 +14,13 @@ import {
   Video
 } from "lucide-react";
 import { SiteContext } from "../siteContext.jsx";
+import { getAppointments, loginAdmin, saveContent, updateAppointment, uploadImage } from "../lib/api.js";
+import { slugify } from "../lib/seo.js";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "profile", label: "Profile", icon: Settings },
+  { id: "seo", label: "SEO", icon: FileText },
   { id: "appointments", label: "Appointments", icon: CalendarDays },
   { id: "media", label: "Videos", icon: Video },
   { id: "blog", label: "Blog", icon: FileText },
@@ -39,6 +42,42 @@ function Field({ label, children }) {
       <span className="mb-2 block text-sm font-bold text-slate-600">{label}</span>
       {children}
     </label>
+  );
+}
+
+function LoginScreen({ onLogin }) {
+  const [form, setForm] = useState({ email: "admin@drfarhin.local", password: "admin12345" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const result = await loginAdmin(form);
+      localStorage.setItem("doctorAdminToken", result.token);
+      onLogin(result.token);
+    } catch (err) {
+      setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#fff8fb] p-4">
+      <form onSubmit={submit} className="w-full max-w-md rounded-[32px] border border-petal bg-white p-8 shadow-soft">
+        <p className="font-bold uppercase tracking-wide text-clinic">Doctor CMS</p>
+        <h1 className="mt-2 text-3xl font-extrabold">Admin login</h1>
+        <div className="mt-6 space-y-4">
+          <Field label="Email"><input className="admin-input h-14" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+          <Field label="Password"><input className="admin-input h-14" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        </div>
+        {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{error}</p>}
+        <button className="mt-5 w-full rounded-2xl bg-ink px-5 py-4 font-extrabold text-white">{loading ? "Logging in..." : "Login"}</button>
+      </form>
+    </main>
   );
 }
 
@@ -88,12 +127,29 @@ function Dashboard({ content, appointments }) {
   );
 }
 
-function ProfileEditor({ content, setContent }) {
+function ProfileEditor({ content, setContent, token }) {
   const [draft, setDraft] = useState(content.profile);
   const [services, setServices] = useState(content.services.join("\n"));
+  const [uploading, setUploading] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   function save() {
     setContent((prev) => ({ ...prev, profile: draft, services: services.split("\n").filter(Boolean) }));
+  }
+
+  async function handleProfileUpload(file, key) {
+    if (!file) return;
+    setUploading(key);
+    setUploadError("");
+
+    try {
+      const result = await uploadImage(file, token);
+      setDraft((current) => ({ ...current, [key]: result.url }));
+    } catch (error) {
+      setUploadError(error.message || "Image upload failed");
+    } finally {
+      setUploading("");
+    }
   }
 
   return (
@@ -107,14 +163,27 @@ function ProfileEditor({ content, setContent }) {
           <Field label="Email"><input className="admin-input" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
           <Field label="Chamber"><input className="admin-input" value={draft.chamber} onChange={(e) => setDraft({ ...draft, chamber: e.target.value })} /></Field>
           <Field label="Hero image path"><input className="admin-input" value={draft.heroImage} onChange={(e) => setDraft({ ...draft, heroImage: e.target.value })} /></Field>
+          <Field label="Portrait image path"><input className="admin-input" value={draft.portraitImage} onChange={(e) => setDraft({ ...draft, portraitImage: e.target.value })} /></Field>
           <Field label="Intro"><textarea className="admin-input min-h-32 md:col-span-2" value={draft.intro} onChange={(e) => setDraft({ ...draft, intro: e.target.value })} /></Field>
           <Field label="Services, one per line"><textarea className="admin-input min-h-44 md:col-span-2" value={services} onChange={(e) => setServices(e.target.value)} /></Field>
         </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-[#fff8fb] px-5 py-4 text-sm font-extrabold text-[#7b6074]">
+            {uploading === "heroImage" ? "Uploading hero..." : "Upload Hero Image"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleProfileUpload(e.target.files?.[0], "heroImage")} />
+          </label>
+          <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-[#fff8fb] px-5 py-4 text-sm font-extrabold text-[#7b6074]">
+            {uploading === "portraitImage" ? "Uploading portrait..." : "Upload Portrait Image"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleProfileUpload(e.target.files?.[0], "portraitImage")} />
+          </label>
+        </div>
+        {uploadError && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
         <button onClick={save} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white"><Save size={18} /> Save Content</button>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-5 text-xl font-extrabold">Live preview</h3>
         <img src={draft.heroImage} alt={draft.name} className="mx-auto h-80 object-contain" />
+        <img src={draft.portraitImage} alt={`${draft.name} portrait`} className="mt-4 h-44 w-full rounded-3xl object-cover" />
         <p className="mt-4 text-2xl font-extrabold">{draft.name}</p>
         <p className="mt-2 text-slate-500">{draft.title}</p>
       </div>
@@ -122,9 +191,49 @@ function ProfileEditor({ content, setContent }) {
   );
 }
 
-function AppointmentManager({ appointments, setAppointments }) {
-  function updateStatus(index, status) {
-    setAppointments((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, status } : item));
+function SeoEditor({ content, setContent }) {
+  const [draft, setDraft] = useState(content.seo || {});
+
+  function save() {
+    setContent((prev) => ({ ...prev, seo: draft }));
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-5 text-xl font-extrabold">SEO settings</h3>
+        <div className="grid gap-4">
+          <Field label="Site title"><input className="admin-input" value={draft.siteTitle || ""} onChange={(e) => setDraft({ ...draft, siteTitle: e.target.value })} /></Field>
+          <Field label="Meta title"><input className="admin-input" value={draft.metaTitle || ""} onChange={(e) => setDraft({ ...draft, metaTitle: e.target.value })} /></Field>
+          <Field label="Meta description"><textarea className="admin-input min-h-28" value={draft.metaDescription || ""} onChange={(e) => setDraft({ ...draft, metaDescription: e.target.value })} /></Field>
+          <Field label="SEO keywords"><textarea className="admin-input min-h-24" value={draft.keywords || ""} onChange={(e) => setDraft({ ...draft, keywords: e.target.value })} /></Field>
+          <Field label="Open Graph image URL"><input className="admin-input" value={draft.ogImage || ""} onChange={(e) => setDraft({ ...draft, ogImage: e.target.value })} /></Field>
+        </div>
+        <button onClick={save} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white"><Save size={18} /> Apply SEO</button>
+      </div>
+      <div className="rounded-3xl border border-slate-200 bg-[#fff8fb] p-6 shadow-sm">
+        <h3 className="text-xl font-extrabold">Search preview</h3>
+        <p className="mt-5 text-sm text-green-700">drkfarhin.com</p>
+        <p className="mt-1 text-xl font-bold text-blue-700">{draft.metaTitle || content.profile.name}</p>
+        <p className="mt-2 leading-7 text-slate-600">{draft.metaDescription || content.profile.intro}</p>
+        {draft.ogImage && <img src={draft.ogImage} alt="SEO preview" className="mt-5 h-52 w-full rounded-3xl object-cover" />}
+      </div>
+    </div>
+  );
+}
+
+function AppointmentManager({ appointments, setAppointments, token }) {
+  async function updateStatus(index, status) {
+    const item = appointments[index];
+    setAppointments((items) => items.map((row, itemIndex) => itemIndex === index ? { ...row, status } : row));
+    if (item?._id) {
+      try {
+        const saved = await updateAppointment(item._id, { status }, token);
+        setAppointments((items) => items.map((row, itemIndex) => itemIndex === index ? saved : row));
+      } catch {
+        setAppointments((items) => items.map((row, itemIndex) => itemIndex === index ? { ...row, status: item.status } : row));
+      }
+    }
   }
 
   return (
@@ -153,12 +262,30 @@ function AppointmentManager({ appointments, setAppointments }) {
   );
 }
 
-function ListEditor({ type, items, onChange }) {
-  const empty = type === "blog" ? { title: "", excerpt: "", date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) } : { title: "", url: "" };
+function ListEditor({ type, items, onChange, token }) {
+  const empty = type === "blog"
+    ? { title: "", slug: "", excerpt: "", body: "", image: "", date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), seoTitle: "", seoDescription: "", seoKeywords: "", published: true }
+    : { title: "", url: "" };
   const labels = type === "blog" ? ["Title", "Excerpt", "Date"] : ["Title", "YouTube embed URL"];
+  const [uploadingIndex, setUploadingIndex] = useState(null);
+  const [uploadError, setUploadError] = useState("");
 
   function update(index, key, value) {
     onChange(items.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  }
+
+  async function uploadBlogImage(index, file) {
+    if (!file) return;
+    setUploadingIndex(index);
+    setUploadError("");
+    try {
+      const result = await uploadImage(file, token);
+      update(index, "image", result.url);
+    } catch (error) {
+      setUploadError(error.message || "Image upload failed");
+    } finally {
+      setUploadingIndex(null);
+    }
   }
 
   return (
@@ -173,12 +300,34 @@ function ListEditor({ type, items, onChange }) {
             <div className="grid gap-3 md:grid-cols-2">
               <Field label={labels[0]}><input className="admin-input" value={item.title} onChange={(e) => update(index, "title", e.target.value)} /></Field>
               {type === "blog" ? (
-                <Field label={labels[2]}><input className="admin-input" value={item.date} onChange={(e) => update(index, "date", e.target.value)} /></Field>
+                <>
+                  <Field label={labels[2]}><input className="admin-input" value={item.date} onChange={(e) => update(index, "date", e.target.value)} /></Field>
+                  <Field label="Slug"><input className="admin-input" value={item.slug || slugify(item.title)} onChange={(e) => update(index, "slug", e.target.value)} /></Field>
+                  <Field label="Blog image URL"><input className="admin-input" value={item.image || ""} onChange={(e) => update(index, "image", e.target.value)} /></Field>
+                </>
               ) : (
                 <Field label={labels[1]}><input className="admin-input" value={item.url} onChange={(e) => update(index, "url", e.target.value)} /></Field>
               )}
               {type === "blog" && <Field label={labels[1]}><textarea className="admin-input min-h-28 md:col-span-2" value={item.excerpt} onChange={(e) => update(index, "excerpt", e.target.value)} /></Field>}
+              {type === "blog" && <Field label="Full blog body"><textarea className="admin-input min-h-44 md:col-span-2" value={item.body || ""} onChange={(e) => update(index, "body", e.target.value)} /></Field>}
+              {type === "blog" && <Field label="SEO title"><input className="admin-input" value={item.seoTitle || ""} onChange={(e) => update(index, "seoTitle", e.target.value)} /></Field>}
+              {type === "blog" && <Field label="SEO keywords"><input className="admin-input" value={item.seoKeywords || ""} onChange={(e) => update(index, "seoKeywords", e.target.value)} /></Field>}
+              {type === "blog" && <Field label="SEO description"><textarea className="admin-input min-h-24 md:col-span-2" value={item.seoDescription || ""} onChange={(e) => update(index, "seoDescription", e.target.value)} /></Field>}
             </div>
+            {type === "blog" && (
+              <div className="mt-3 grid gap-3 md:grid-cols-[1fr_180px] md:items-center">
+                <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-[#fff8fb] px-4 py-3 text-sm font-extrabold text-[#7b6074]">
+                  {uploadingIndex === index ? "Uploading..." : "Upload Blog Image"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => uploadBlogImage(index, e.target.files?.[0])} />
+                </label>
+                <label className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                  <input type="checkbox" checked={item.published !== false} onChange={(e) => update(index, "published", e.target.checked)} />
+                  Published
+                </label>
+              </div>
+            )}
+            {uploadError && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
+            {type === "blog" && item.image && <img src={item.image} alt={item.title} className="mt-3 h-48 w-full rounded-2xl object-cover" />}
             <button onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-red-100 px-3 py-2 text-sm font-bold text-red-600"><Trash2 size={15} /> Remove</button>
           </div>
         ))}
@@ -187,16 +336,67 @@ function ListEditor({ type, items, onChange }) {
   );
 }
 
-function Gallery() {
-  const { content } = useContext(SiteContext);
+function Gallery({ token }) {
+  const { content, setContent } = useContext(SiteContext);
+  const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  async function handleMomentUpload(file) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+
+    try {
+      const result = await uploadImage(file, token);
+      setDraft((current) => ({ ...current, image: result.url }));
+    } catch (error) {
+      setUploadError(error.message || "Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function addMoment() {
+    if (!draft.image) return;
+    setContent((prev) => ({
+      ...prev,
+      moments: [
+        {
+          title: draft.title || "Care moment",
+          caption: draft.caption || "Uploaded from admin gallery.",
+          image: draft.image
+        },
+        ...(prev.moments || [])
+      ]
+    }));
+    setDraft({ title: "", caption: "", image: "" });
+  }
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-xl font-extrabold">Image CMS</h3>
-      <p className="mt-2 text-slate-500">Backend e Multer image upload route ready ache. Prototype e image path diye preview update kora jacche.</p>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <img className="h-80 w-full rounded-3xl object-contain bg-pearl p-4" src="/images/doctor-cutout.png" alt="Doctor cutout" />
-        <img className="h-80 w-full rounded-3xl object-cover" src="/images/doctor-portrait.jpg" alt="Doctor portrait" />
+      <p className="mt-2 text-slate-500">Images upload to Cloudinary and return a live hosted URL for website use.</p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-5">
+          <h4 className="text-lg font-extrabold">Upload new gallery moment</h4>
+          <div className="mt-4 grid gap-3">
+            <input className="admin-input" placeholder="Moment title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+            <textarea className="admin-input min-h-24" placeholder="Short caption" value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
+            <input className="admin-input" placeholder="Cloudinary image URL" value={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.value })} />
+            <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-white px-5 py-4 text-sm font-extrabold text-[#7b6074]">
+              {uploading ? "Uploading to Cloudinary..." : "Choose Image & Upload"}
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleMomentUpload(e.target.files?.[0])} />
+            </label>
+            {uploadError && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
+            {draft.image && <img src={draft.image} alt="Uploaded preview" className="h-56 w-full rounded-2xl object-cover" />}
+            <button onClick={addMoment} className="rounded-2xl bg-ink px-5 py-3 font-bold text-white">Add to Gallery</button>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+        <img className="h-80 w-full rounded-3xl object-contain bg-pearl p-4" src={content.profile.heroImage} alt="Doctor cutout" />
+        <img className="h-80 w-full rounded-3xl object-cover" src={content.profile.portraitImage} alt="Doctor portrait" />
+        </div>
       </div>
       <h4 className="mt-8 text-lg font-extrabold">Care moments gallery</h4>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -217,7 +417,40 @@ function Gallery() {
 export default function Admin() {
   const { content, setContent, appointments, setAppointments } = useContext(SiteContext);
   const [active, setActive] = useState("dashboard");
+  const [token, setToken] = useState(() => localStorage.getItem("doctorAdminToken") || "");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
   const title = useMemo(() => tabs.find((tab) => tab.id === active)?.label, [active]);
+
+  useEffect(() => {
+    if (!token) return;
+    getAppointments(token)
+      .then((items) => setAppointments(items.length ? items : appointments))
+      .catch(() => setStatus("Appointments could not load from backend yet."));
+  }, [token]);
+
+  async function persistContent() {
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(content, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved to backend successfully.");
+    } catch (error) {
+      setStatus(error.message || "Save failed. Check backend env and login.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("doctorAdminToken");
+    setToken("");
+  }
+
+  if (!token) {
+    return <LoginScreen onLogin={setToken} />;
+  }
 
   return (
     <main className="min-h-screen bg-pearl">
@@ -248,10 +481,12 @@ export default function Admin() {
               <h2 className="text-2xl font-extrabold">{title}</h2>
             </div>
             <div className="flex gap-2">
+              <button onClick={persistContent} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white"><Save size={17} /> {saving ? "Saving..." : "Save Backend"}</button>
               <Link to="/" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold"><Home size={17} /> Website</Link>
-              <button className="hidden items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white sm:inline-flex"><LogOut size={17} /> Logout</button>
+              <button onClick={logout} className="hidden items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white sm:inline-flex"><LogOut size={17} /> Logout</button>
             </div>
           </div>
+          {status && <p className="mt-3 rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
           <div className="mt-4 flex gap-2 overflow-x-auto lg:hidden">
             {tabs.map((tab) => (
               <button key={tab.id} onClick={() => setActive(tab.id)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${active === tab.id ? "bg-ink text-white" : "bg-white text-slate-600"}`}>{tab.label}</button>
@@ -260,11 +495,12 @@ export default function Admin() {
         </header>
         <div className="p-4 lg:p-8">
           {active === "dashboard" && <Dashboard content={content} appointments={appointments} />}
-          {active === "profile" && <ProfileEditor content={content} setContent={setContent} />}
-          {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} />}
-          {active === "media" && <ListEditor type="video" items={content.videos} onChange={(videos) => setContent((prev) => ({ ...prev, videos }))} />}
-          {active === "blog" && <ListEditor type="blog" items={content.blogs} onChange={(blogs) => setContent((prev) => ({ ...prev, blogs }))} />}
-          {active === "gallery" && <Gallery />}
+          {active === "profile" && <ProfileEditor content={content} setContent={setContent} token={token} />}
+          {active === "seo" && <SeoEditor content={content} setContent={setContent} />}
+          {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} token={token} />}
+          {active === "media" && <ListEditor type="video" items={content.videos} token={token} onChange={(videos) => setContent((prev) => ({ ...prev, videos }))} />}
+          {active === "blog" && <ListEditor type="blog" items={content.blogs} token={token} onChange={(blogs) => setContent((prev) => ({ ...prev, blogs }))} />}
+          {active === "gallery" && <Gallery token={token} />}
         </div>
       </section>
     </main>

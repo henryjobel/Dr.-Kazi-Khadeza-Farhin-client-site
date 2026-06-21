@@ -24,6 +24,7 @@ import { motion } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { clinicalSkills, education, professionalExperience, researchHighlights, specialistTraining } from "../data/profileDetails.js";
+import { createAppointment } from "../lib/api.js";
 
 const leftNavItems = [
   { label: "Home", href: "/" },
@@ -173,6 +174,8 @@ function Hero() {
 
 function AppointmentForm() {
   const { content, setAppointments } = useContext(SiteContext);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -182,10 +185,23 @@ function AppointmentForm() {
     message: ""
   });
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    setAppointments((items) => [{ ...form, status: "Pending" }, ...items]);
-    setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0], date: "", message: "" });
+    const payload = { ...form, status: "Pending" };
+    setSaving(true);
+    setNotice("");
+
+    try {
+      const saved = await createAppointment(payload);
+      setAppointments((items) => [saved || payload, ...items]);
+      setNotice("Appointment request sent successfully.");
+      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0], date: "", message: "" });
+    } catch {
+      setAppointments((items) => [payload, ...items]);
+      setNotice("Request saved in local preview. Please check the live backend connection.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -240,9 +256,10 @@ function AppointmentForm() {
             <input className="admin-input h-16" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
             <textarea className="admin-input min-h-28 md:col-span-2" placeholder="Short note, concern, or preferred time" value={form.message || ""} onChange={(e) => setForm({ ...form, message: e.target.value })} />
           </div>
-          <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-clinic px-6 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.26)]">
-            Request Appointment <ArrowUpRight size={18} />
+          <button disabled={saving} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-clinic px-6 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.26)] disabled:cursor-not-allowed disabled:opacity-70">
+            {saving ? "Sending..." : "Request Appointment"} <ArrowUpRight size={18} />
           </button>
+          {notice && <p className="mt-3 rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{notice}</p>}
         </form>
       </div>
     </section>

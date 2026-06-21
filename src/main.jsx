@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import App from "./pages/App.jsx";
 import Admin from "./pages/Admin.jsx";
+import BlogDetailsPage from "./pages/BlogDetails.jsx";
 import BlogPage from "./pages/Blog.jsx";
 import ContactPage from "./pages/Contact.jsx";
 import GalleryPage from "./pages/Gallery.jsx";
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogDetailsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/admin/*" element={<Admin />} />

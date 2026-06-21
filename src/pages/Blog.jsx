@@ -1,7 +1,9 @@
 import { useContext } from "react";
+import { Link } from "react-router-dom";
 import { ArrowUpRight, BookOpenText, CalendarDays, CheckCircle2, Stethoscope } from "lucide-react";
 import { Header } from "./App.jsx";
 import { SiteContext } from "../siteContext.jsx";
+import { slugify } from "../lib/seo.js";
 
 const topics = [
   "Infertility consultation",
@@ -12,10 +14,13 @@ const topics = [
 
 export default function BlogPage() {
   const { content } = useContext(SiteContext);
-  const posts = content.blogs.map((post, index) => ({
-    ...post,
-    image: content.moments[index + 1]?.image || content.profile.portraitImage
-  }));
+  const posts = content.blogs
+    .filter((post) => post.published !== false)
+    .map((post, index) => ({
+      ...post,
+      slug: post.slug || slugify(post.title),
+      image: post.image || content.moments[index + 1]?.image || content.profile.portraitImage
+    }));
 
   return (
     <main className="min-h-screen bg-white text-ink">
@@ -76,9 +81,9 @@ export default function BlogPage() {
                   </p>
                   <h3 className="mt-3 text-2xl font-extrabold">{post.title}</h3>
                   <p className="mt-4 leading-7 text-slate-600">{post.excerpt}</p>
-                  <button className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#fbf0f4] px-5 py-3 font-extrabold text-[#7b6074]">
+                  <Link to={`/blog/${post.slug}`} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#fbf0f4] px-5 py-3 font-extrabold text-[#7b6074]">
                     Read article <ArrowUpRight size={17} />
-                  </button>
+                  </Link>
                 </div>
               </article>
             ))}

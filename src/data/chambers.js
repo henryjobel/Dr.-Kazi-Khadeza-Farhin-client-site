@@ -1,4 +1,4 @@
-export const chambers = [
+﻿export const chambers = [
   {
     name: "উত্তরা ক্রিসেন্ট ক্লিনিক এন্ড হাসপাতাল",
     shortName: "Uttara Crescent Clinic & Hospital",
@@ -6,7 +6,7 @@ export const chambers = [
     schedule: "বুধবার ব্যতিত প্রতিদিন",
     phone: "01850545737",
     appointment: "10665 / 09666710665",
-    logo: "/images/logos/uch-logo.png.webp"
+    logo: "https://res.cloudinary.com/dav46zigt/image/upload/v1782026892/doctor-khadeza-farhin/logos/uch-logo-png.webp"
   },
   {
     name: "নোভা আইভিএফ ফার্টিলিটি, বনানী শাখা",
@@ -15,6 +15,7 @@ export const chambers = [
     schedule: "বুধবার ও সোমবার",
     phone: "09611678934, 01322-842071",
     appointment: "09611678934 / 01322-842071",
-    logo: "/images/logos/nova-ivf-logo.jpg"
+    logo: "https://res.cloudinary.com/dav46zigt/image/upload/v1782026893/doctor-khadeza-farhin/logos/nova-ivf-logo.jpg"
   }
 ];
+
