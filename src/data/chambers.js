@@ -5,7 +5,8 @@ export const chambers = [
     address: "সাত্তার প্লাজা (ইউনিট-২), বাড়ী নং-৪০, রবীন্দ্র সরণি, সেক্টর-০৭, উত্তরা, ঢাকা",
     schedule: "বুধবার ব্যতিত প্রতিদিন",
     phone: "01850545737",
-    appointment: "10665 / 09666710665"
+    appointment: "10665 / 09666710665",
+    logo: "/images/logos/uch-logo.png.webp"
   },
   {
     name: "নোভা আইভিএফ ফার্টিলিটি, বনানী শাখা",
@@ -13,6 +14,7 @@ export const chambers = [
     address: "কেবিপিডি কমপ্লেক্স, লেভেল-৩, রোড নং ১১, বনানী, ঢাকা-১২১৩",
     schedule: "বুধবার ও সোমবার",
     phone: "09611678934, 01322-842071",
-    appointment: "09611678934 / 01322-842071"
+    appointment: "09611678934 / 01322-842071",
+    logo: "/images/logos/nova-ivf-logo.jpg"
   }
 ];

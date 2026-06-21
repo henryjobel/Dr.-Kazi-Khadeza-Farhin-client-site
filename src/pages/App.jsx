@@ -2,9 +2,12 @@ import { useContext, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
+  Award,
+  BriefcaseBusiness,
   CalendarCheck,
   CheckCircle2,
   Clock3,
+  GraduationCap,
   HeartHandshake,
   HeartPulse,
   Facebook,
@@ -20,6 +23,7 @@ import {
 import { motion } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
+import { clinicalSkills, education, professionalExperience, researchHighlights, specialistTraining } from "../data/profileDetails.js";
 
 const leftNavItems = [
   { label: "Home", href: "/" },
@@ -28,7 +32,7 @@ const leftNavItems = [
   { label: "Gallery", href: "/gallery" }
 ];
 const rightNavItems = [
-  { label: "Testimonial", href: "/#videos" },
+  { label: "Experience", href: "/#experience" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" }
 ];
@@ -200,8 +204,13 @@ function AppointmentForm() {
               {chambers.map((chamber, index) => (
                 <div key={chamber.shortName} className="rounded-3xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur">
                   <div className="mb-3 flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-clinic text-sm font-extrabold text-white">{index + 1}</span>
-                    <p className="font-extrabold leading-5">{chamber.name}</p>
+                    <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-white p-1.5">
+                      <img src={chamber.logo} alt={`${chamber.shortName} logo`} className="h-full w-full object-contain" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-extrabold text-clinic">Chamber {index + 1}</p>
+                      <p className="font-extrabold leading-5">{chamber.name}</p>
+                    </div>
                   </div>
                   <div className="space-y-2 text-sm leading-6 text-white/75">
                     <p className="flex gap-2"><MapPin size={17} className="mt-1 shrink-0 text-clinic" /> {chamber.address}</p>
@@ -377,6 +386,115 @@ function About() {
   );
 }
 
+function Credentials() {
+  return (
+    <section id="experience" className="bg-white py-20">
+      <div className="mx-auto max-w-[1320px] px-4 lg:px-14 xl:px-20">
+        <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          <div>
+            <p className="font-bold uppercase tracking-wide text-clinic">Portfolio</p>
+            <h2 className="mt-2 text-4xl font-extrabold leading-tight text-ink md:text-5xl">
+              Education, experience and specialist training
+            </h2>
+          </div>
+          <p className="max-w-2xl text-lg leading-8 text-slate-600">
+            A CV-based overview of Dr. Farhin&apos;s academic background, government service, private consultancy and fertility-focused clinical work.
+          </p>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-[32px] bg-[#fff8fb] p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-clinic text-white">
+                <GraduationCap size={23} />
+              </span>
+              <div>
+                <p className="text-sm font-bold uppercase tracking-wide text-clinic">Education</p>
+                <h3 className="text-2xl font-extrabold">Academic qualifications</h3>
+              </div>
+            </div>
+            <div className="space-y-4">
+              {education.map((item) => (
+                <article key={`${item.degree}-${item.meta}`} className="rounded-[24px] border border-petal/70 bg-white p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-xl font-extrabold text-ink">{item.degree}</h4>
+                      <p className="mt-1 font-bold text-[#7b6074]">{item.meta}</p>
+                    </div>
+                    <span className="rounded-full bg-[#fbf0f4] px-3 py-1 text-xs font-extrabold text-clinic">{item.year}</span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.institute}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[32px] bg-ink p-6 text-white shadow-soft">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-clinic text-white">
+                <BriefcaseBusiness size={22} />
+              </span>
+              <div>
+                <p className="text-sm font-bold uppercase tracking-wide text-clinic">Professional Experience</p>
+                <h3 className="text-2xl font-extrabold">Clinical career timeline</h3>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {professionalExperience.map((item) => (
+                <article key={`${item.role}-${item.period}`} className="rounded-[22px] border border-white/10 bg-white/[0.07] p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h4 className="text-lg font-extrabold">{item.role}</h4>
+                      <p className="mt-1 text-sm leading-6 text-white/70">{item.place}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-extrabold text-blush">{item.period}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-3">
+          <div className="rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm">
+            <Award className="text-clinic" />
+            <h3 className="mt-4 text-2xl font-extrabold">Specialist Training</h3>
+            <div className="mt-5 space-y-3">
+              {specialistTraining.map((item) => (
+                <p key={item} className="flex gap-3 text-sm font-semibold leading-6 text-slate-600">
+                  <CheckCircle2 size={18} className="mt-1 shrink-0 text-clinic" /> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[30px] border border-slate-100 bg-[#fff8fb] p-6 shadow-sm">
+            <HeartPulse className="text-clinic" />
+            <h3 className="mt-4 text-2xl font-extrabold">Clinical Skills</h3>
+            <div className="mt-5 space-y-3">
+              {clinicalSkills.map((item) => (
+                <p key={item} className="flex gap-3 text-sm font-semibold leading-6 text-slate-600">
+                  <CheckCircle2 size={18} className="mt-1 shrink-0 text-clinic" /> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm">
+            <Sparkles className="text-clinic" />
+            <h3 className="mt-4 text-2xl font-extrabold">Research & Achievements</h3>
+            <div className="mt-5 space-y-3">
+              {researchHighlights.map((item) => (
+                <p key={item} className="flex gap-3 text-sm font-semibold leading-6 text-slate-600">
+                  <CheckCircle2 size={18} className="mt-1 shrink-0 text-clinic" /> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function VideosAndBlog() {
   const { content } = useContext(SiteContext);
   return (
@@ -445,6 +563,7 @@ export default function App() {
       <Services />
       <JourneyHighlights />
       <About />
+      <Credentials />
       <VideosAndBlog />
       <Contact />
     </>

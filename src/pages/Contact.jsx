@@ -86,8 +86,11 @@ export default function ContactPage() {
             {chambers.map((chamber, index) => (
               <article key={chamber.shortName} className="rounded-[32px] border border-petal/70 bg-[#fff8fb] p-7 shadow-sm">
                 <div className="mb-6 flex items-start gap-4">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-clinic text-lg font-extrabold text-white">{index + 1}</span>
+                  <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-petal bg-white p-2 shadow-sm">
+                    <img src={chamber.logo} alt={`${chamber.shortName} logo`} className="h-full w-full object-contain" />
+                  </span>
                   <div>
+                    <p className="text-sm font-extrabold uppercase tracking-wide text-clinic">Chamber {index + 1}</p>
                     <h3 className="text-2xl font-extrabold">{chamber.name}</h3>
                     <p className="mt-1 font-bold text-[#7b6074]">{chamber.shortName}</p>
                   </div>
