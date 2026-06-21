@@ -64,6 +64,11 @@ export const defaultContent = {
       image: "/images/moments/645688224_914948164603044_3516257139891852982_n.jpg"
     },
     {
+      title: "Comfort care follow-up",
+      caption: "Gentle follow-up support for children and parents.",
+      image: "/images/moments/646550644_914948151269712_8364454440645532920_n (1).jpg"
+    },
+    {
       title: "Safe delivery support",
       caption: "Women-centered care with calm, clear consultation.",
       image: "/images/moments/658186000_934681962629664_2179657806664152025_n.jpg"
@@ -79,9 +84,19 @@ export const defaultContent = {
       image: "/images/moments/710755677_986787217419138_3467396479179229291_n.jpg"
     },
     {
+      title: "Newborn visit",
+      caption: "Tender care after delivery with clear recovery guidance.",
+      image: "/images/moments/710756043_986787227419137_6187814533464766534_n.jpg"
+    },
+    {
       title: "Family consultation",
       caption: "Ongoing support after treatment and delivery.",
       image: "/images/moments/720408233_1562907852015852_5548150974104311037_n.jpg"
+    },
+    {
+      title: "Motherhood support",
+      caption: "A trusted care journey for pregnancy and birth.",
+      image: "/images/moments/727285980_1003831995714660_3026363090986145183_n.jpg"
     },
     {
       title: "Birth care journey",

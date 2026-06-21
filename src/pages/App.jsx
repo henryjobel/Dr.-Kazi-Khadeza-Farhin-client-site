@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
   CalendarCheck,
@@ -19,21 +19,29 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
+import { chambers } from "../data/chambers.js";
 
 const leftNavItems = [
-  { label: "Home", href: "#home" },
-  { label: "About", href: "#about" },
-  { label: "Service", href: "#services" }
+  { label: "Home", href: "/" },
+  { label: "About", href: "/#about" },
+  { label: "Service", href: "/#services" },
+  { label: "Gallery", href: "/gallery" }
 ];
 const rightNavItems = [
-  { label: "Testimonial", href: "#videos" },
-  { label: "Blog", href: "#blog" },
-  { label: "Contact", href: "#contact" }
+  { label: "Testimonial", href: "/#videos" },
+  { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/contact" }
 ];
 const mobileNavItems = [...leftNavItems, ...rightNavItems];
 
-function Header() {
+export function Header() {
   const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  const isActive = (item) => {
+    if (item.href === "/") return pathname === "/";
+    return pathname === item.href;
+  };
 
   return (
     <header className="fixed left-0 right-0 top-7 z-50 px-4">
@@ -44,14 +52,14 @@ function Header() {
               key={item.label}
               href={item.href}
               className={`rounded-full px-7 py-3.5 font-semibold transition ${
-                item.label === "Home" ? "bg-clinic text-white shadow-[inset_0_-2px_0_rgba(255,255,255,0.24)]" : "text-white/90 hover:bg-white/10"
+                isActive(item) ? "bg-clinic text-white shadow-[inset_0_-2px_0_rgba(255,255,255,0.24)]" : "text-white/90 hover:bg-white/10"
               }`}
             >
               {item.label}
             </a>
           ))}
         </div>
-        <a href="#home" className="flex items-center gap-2 rounded-full px-3 py-2 text-[18px] font-extrabold tracking-normal">
+        <a href="/" className="flex items-center gap-2 rounded-full px-3 py-2 text-[18px] font-extrabold tracking-normal">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-clinic text-white">
             <Sparkles size={17} fill="currentColor" />
           </span>
@@ -59,7 +67,13 @@ function Header() {
         </a>
         <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
           {rightNavItems.map((item) => (
-            <a key={item.label} href={item.href} className="rounded-full px-6 py-3.5 font-semibold text-white/90 transition hover:bg-white/10">
+            <a
+              key={item.label}
+              href={item.href}
+              className={`rounded-full px-6 py-3.5 font-semibold transition ${
+                isActive(item) ? "bg-clinic text-white shadow-[inset_0_-2px_0_rgba(255,255,255,0.24)]" : "text-white/90 hover:bg-white/10"
+              }`}
+            >
               {item.label}
             </a>
           ))}
@@ -155,24 +169,6 @@ function Hero() {
 
 function AppointmentForm() {
   const { content, setAppointments } = useContext(SiteContext);
-  const chambers = [
-    {
-      name: "উত্তরা ক্রিসেন্ট ক্লিনিক এন্ড হাসপাতাল",
-      shortName: "Uttara Crescent Clinic & Hospital",
-      address: "সাত্তার প্লাজা (ইউনিট-২), বাড়ী নং-৪০, রবীন্দ্র সরণি, সেক্টর-০৭, উত্তরা, ঢাকা",
-      schedule: "বুধবার ব্যতিত প্রতিদিন",
-      phone: "01850545737",
-      appointment: "10665 / 09666710665"
-    },
-    {
-      name: "নোভা আইভিএফ ফার্টিলিটি, বনানী শাখা",
-      shortName: "Nova IVF Fertility, Banani",
-      address: "কেবিপিডি কমপ্লেক্স, লেভেল-৩, রোড নং ১১, বনানী, ঢাকা-১২১৩",
-      schedule: "বুধবার ও সোমবার",
-      phone: "09611678934, 01322-842071",
-      appointment: "09611678934 / 01322-842071"
-    }
-  ];
   const [form, setForm] = useState({
     name: "",
     phone: "",
