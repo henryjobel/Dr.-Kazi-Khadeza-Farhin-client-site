@@ -405,6 +405,57 @@ function JourneyHighlights() {
   );
 }
 
+function CustomHomeSections() {
+  const { content } = useContext(SiteContext);
+  const sections = (content.home?.customSections || []).filter((section) => section.enabled !== false);
+
+  if (!sections.length) return null;
+
+  return (
+    <>
+      {sections.map((section, index) => {
+        const items = section.items || [];
+        const hasImage = Boolean(section.image);
+        const isImageText = section.type === "imageText" || (section.type === "banner" && hasImage);
+
+        return (
+          <section key={`${section.title}-${index}`} className={index % 2 ? "bg-white py-20" : "bg-[#fff8fb] py-20"}>
+            <div className={`mx-auto grid max-w-[1320px] gap-8 px-4 lg:px-14 xl:px-20 ${isImageText ? "lg:grid-cols-[0.92fr_1.08fr] lg:items-center" : ""}`}>
+              {isImageText && (
+                <img
+                  src={section.image}
+                  alt={section.title || "Homepage section"}
+                  className="h-[420px] w-full rounded-[32px] object-cover shadow-soft"
+                />
+              )}
+              <div>
+                {section.eyebrow && <p className="font-bold uppercase tracking-wide text-clinic">{section.eyebrow}</p>}
+                {section.title && <h2 className="mt-2 max-w-4xl text-4xl font-extrabold leading-tight text-ink md:text-5xl">{section.title}</h2>}
+                {section.body && <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600">{section.body}</p>}
+                {items.length > 0 && (
+                  <div className={`mt-8 grid gap-4 ${section.type === "cards" ? "md:grid-cols-3" : "sm:grid-cols-2"}`}>
+                    {items.map((item) => (
+                      <div key={item} className="rounded-[24px] border border-slate-100 bg-white p-5 font-bold leading-7 text-slate-700 shadow-sm">
+                        <CheckCircle2 className="mb-4 text-clinic" size={22} />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {section.ctaLabel && section.ctaHref && (
+                  <a href={section.ctaHref} className="mt-8 inline-flex items-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.24)]">
+                    {section.ctaLabel} <ArrowUpRight size={18} />
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
 function Services() {
   const { content } = useContext(SiteContext);
   return (
@@ -627,6 +678,7 @@ export default function App() {
     <>
       <Header />
       <Hero />
+      <CustomHomeSections />
       <AppointmentForm />
       <CareMoments />
       <Services />

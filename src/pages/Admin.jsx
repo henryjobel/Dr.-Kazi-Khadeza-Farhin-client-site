@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarDays,
@@ -14,7 +14,7 @@ import {
   Video
 } from "lucide-react";
 import { SiteContext } from "../siteContext.jsx";
-import { getAppointments, loginAdmin, saveContent, updateAppointment, uploadImage } from "../lib/api.js";
+import { getAppointments, getContent, loginAdmin, saveContent, updateAppointment, uploadImage } from "../lib/api.js";
 import { slugify } from "../lib/seo.js";
 
 const tabs = [
@@ -132,22 +132,47 @@ function Dashboard({ content, appointments }) {
   );
 }
 
+const emptyHomeSection = () => ({
+  type: "cards",
+  eyebrow: "New Section",
+  title: "Homepage section title",
+  body: "",
+  image: "",
+  ctaLabel: "",
+  ctaHref: "",
+  items: ["First item"],
+  enabled: true
+});
+
+function linesToArray(value) {
+  return value.split("\n").map((item) => item.trim()).filter(Boolean);
+}
+
+function arrayToLines(value) {
+  return (value || []).join("\n");
+}
+
 function HomeEditor({ content, setContent, token, onAuthError }) {
   const [stats, setStats] = useState(content.stats || []);
   const [home, setHome] = useState(content.home || {});
   const [specialistItems, setSpecialistItems] = useState((content.home?.specialistItems || []).join("\n"));
   const [aboutItems, setAboutItems] = useState((content.home?.aboutItems || []).join("\n"));
   const [journeyItems, setJourneyItems] = useState((content.home?.journeyItems || []).join("\n"));
+  const [customSections, setCustomSections] = useState(content.home?.customSections || []);
+  const [uploadingSection, setUploadingSection] = useState(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
+    if (dirty) return;
     setStats(content.stats || []);
     setHome(content.home || {});
     setSpecialistItems((content.home?.specialistItems || []).join("\n"));
     setAboutItems((content.home?.aboutItems || []).join("\n"));
     setJourneyItems((content.home?.journeyItems || []).join("\n"));
-  }, [content._id, content.updatedAt]);
+    setCustomSections(content.home?.customSections || []);
+  }, [content._id, content.updatedAt, dirty]);
 
   async function save() {
     const newContent = {
@@ -157,7 +182,12 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         ...home,
         specialistItems: specialistItems.split("\n").map((s) => s.trim()).filter(Boolean),
         aboutItems: aboutItems.split("\n").map((s) => s.trim()).filter(Boolean),
-        journeyItems: journeyItems.split("\n").map((s) => s.trim()).filter(Boolean)
+        journeyItems: journeyItems.split("\n").map((s) => s.trim()).filter(Boolean),
+        customSections: customSections.map((section) => ({
+          ...section,
+          items: section.items || [],
+          enabled: section.enabled !== false
+        }))
       }
     };
     setContent(newContent);
@@ -166,6 +196,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
     try {
       const saved = await saveContent(newContent, token);
       setContent((prev) => ({ ...prev, ...saved }));
+      setDirty(false);
       setStatus("Saved successfully.");
     } catch (err) {
       if (isAuthError(err)) {
@@ -178,20 +209,70 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
     }
   }
 
+  function updateSection(index, key, value) {
+    setDirty(true);
+    setCustomSections((sections) => sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, [key]: value } : section));
+  }
+
+  function moveSection(index, direction) {
+    setDirty(true);
+    setCustomSections((sections) => {
+      const next = [...sections];
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= next.length) return sections;
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  }
+
+  async function uploadSectionImage(index, file) {
+    if (!file) return;
+    setUploadingSection(index);
+    setStatus("");
+    try {
+      const result = await uploadImage(file, token);
+      updateSection(index, "image", result.url);
+    } catch (error) {
+      setStatus(error.message || "Image upload failed.");
+    } finally {
+      setUploadingSection(null);
+    }
+  }
+
+  function addStat() {
+    setDirty(true);
+    setStats((items) => [...items, { value: "", label: "" }]);
+  }
+
+  function removeStat(index) {
+    setDirty(true);
+    setStats((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-1 text-xl font-extrabold">Hero stats (3 cards)</h3>
-        <p className="mb-5 text-sm text-slate-500">The 3 stat boxes shown below the hero buttons.</p>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-extrabold">Hero stats</h3>
+            <p className="mt-1 text-sm text-slate-500">Add, remove, or edit stat cards shown below the hero buttons.</p>
+          </div>
+          <button onClick={addStat} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Stat
+          </button>
+        </div>
         <div className="grid gap-4 md:grid-cols-3">
           {stats.map((stat, i) => (
             <div key={i} className="rounded-2xl border border-slate-100 bg-[#fff8fb] p-4 space-y-3">
               <Field label="Value">
-                <input className="admin-input" value={stat.value} onChange={(e) => setStats(stats.map((s, si) => si === i ? { ...s, value: e.target.value } : s))} />
+                <input className="admin-input" value={stat.value} onChange={(e) => { setDirty(true); setStats(stats.map((s, si) => si === i ? { ...s, value: e.target.value } : s)); }} />
               </Field>
               <Field label="Label">
-                <input className="admin-input" value={stat.label} onChange={(e) => setStats(stats.map((s, si) => si === i ? { ...s, label: e.target.value } : s))} />
+                <input className="admin-input" value={stat.label} onChange={(e) => { setDirty(true); setStats(stats.map((s, si) => si === i ? { ...s, label: e.target.value } : s)); }} />
               </Field>
+              <button onClick={() => removeStat(i)} className="inline-flex items-center gap-2 rounded-xl border border-red-100 px-3 py-2 text-sm font-bold text-red-600">
+                <Trash2 size={15} /> Remove
+              </button>
             </div>
           ))}
         </div>
@@ -202,17 +283,17 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         <p className="mb-5 text-sm text-slate-500">The badge, heading and experience badge on the hero.</p>
         <div className="grid gap-4">
           <Field label="Qualification badge (top tag)">
-            <input className="admin-input" value={home.heroBadge || ""} onChange={(e) => setHome({ ...home, heroBadge: e.target.value })} />
+            <input className="admin-input" value={home.heroBadge || ""} onChange={(e) => { setDirty(true); setHome({ ...home, heroBadge: e.target.value }); }} />
           </Field>
           <Field label="Main heading (doctor name is added automatically after this)">
-            <input className="admin-input" value={home.heroHeading || ""} onChange={(e) => setHome({ ...home, heroHeading: e.target.value })} />
+            <input className="admin-input" value={home.heroHeading || ""} onChange={(e) => { setDirty(true); setHome({ ...home, heroHeading: e.target.value }); }} />
           </Field>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Experience years (right badge)">
-              <input className="admin-input" value={home.experienceYears || ""} onChange={(e) => setHome({ ...home, experienceYears: e.target.value })} />
+              <input className="admin-input" value={home.experienceYears || ""} onChange={(e) => { setDirty(true); setHome({ ...home, experienceYears: e.target.value }); }} />
             </Field>
             <Field label="Experience label">
-              <input className="admin-input" value={home.experienceLabel || ""} onChange={(e) => setHome({ ...home, experienceLabel: e.target.value })} />
+              <input className="admin-input" value={home.experienceLabel || ""} onChange={(e) => { setDirty(true); setHome({ ...home, experienceLabel: e.target.value }); }} />
             </Field>
           </div>
         </div>
@@ -222,7 +303,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         <h3 className="mb-1 text-xl font-extrabold">Specialist care slider</h3>
         <p className="mb-5 text-sm text-slate-500">One item per line — these slide automatically on the hero image card.</p>
         <Field label="Specialist items (one per line)">
-          <textarea className="admin-input min-h-32" value={specialistItems} onChange={(e) => setSpecialistItems(e.target.value)} />
+          <textarea className="admin-input min-h-32" value={specialistItems} onChange={(e) => { setDirty(true); setSpecialistItems(e.target.value); }} />
         </Field>
       </div>
 
@@ -230,7 +311,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         <h3 className="mb-1 text-xl font-extrabold">About section checklist</h3>
         <p className="mb-5 text-sm text-slate-500">One item per line — the 4 boxes shown in the About section.</p>
         <Field label="About checklist (one per line)">
-          <textarea className="admin-input min-h-28" value={aboutItems} onChange={(e) => setAboutItems(e.target.value)} />
+          <textarea className="admin-input min-h-28" value={aboutItems} onChange={(e) => { setDirty(true); setAboutItems(e.target.value); }} />
         </Field>
       </div>
 
@@ -238,8 +319,84 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         <h3 className="mb-1 text-xl font-extrabold">Why patients trust her</h3>
         <p className="mb-5 text-sm text-slate-500">One item per line — shown in the journey highlights section.</p>
         <Field label="Journey items (one per line)">
-          <textarea className="admin-input min-h-28" value={journeyItems} onChange={(e) => setJourneyItems(e.target.value)} />
+          <textarea className="admin-input min-h-28" value={journeyItems} onChange={(e) => { setDirty(true); setJourneyItems(e.target.value); }} />
         </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-extrabold">Homepage custom sections</h3>
+            <p className="mt-1 text-sm text-slate-500">Add new homepage sections with cards, image/text layouts, CTA buttons, and ordered content.</p>
+          </div>
+          <button onClick={() => { setDirty(true); setCustomSections((sections) => [...sections, emptyHomeSection()]); }} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Section
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {customSections.map((section, index) => (
+            <div key={index} className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-wide text-clinic">Section {index + 1}</p>
+                  <h4 className="text-lg font-extrabold">{section.title || "Untitled section"}</h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => moveSection(index, -1)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold">Up</button>
+                  <button onClick={() => moveSection(index, 1)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold">Down</button>
+                  <button onClick={() => { setDirty(true); setCustomSections((sections) => sections.filter((_, sectionIndex) => sectionIndex !== index)); }} className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600">
+                    <Trash2 size={15} /> Delete
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Section type">
+                  <select className="admin-input" value={section.type || "cards"} onChange={(e) => updateSection(index, "type", e.target.value)}>
+                    <option value="cards">Cards grid</option>
+                    <option value="imageText">Image + text</option>
+                    <option value="banner">Banner</option>
+                    <option value="text">Text only</option>
+                  </select>
+                </Field>
+                <label className="flex items-end gap-2 pb-3 text-sm font-bold text-slate-600">
+                  <input type="checkbox" checked={section.enabled !== false} onChange={(e) => updateSection(index, "enabled", e.target.checked)} />
+                  Show this section on homepage
+                </label>
+                <Field label="Eyebrow">
+                  <input className="admin-input" value={section.eyebrow || ""} onChange={(e) => updateSection(index, "eyebrow", e.target.value)} />
+                </Field>
+                <Field label="Title">
+                  <input className="admin-input" value={section.title || ""} onChange={(e) => updateSection(index, "title", e.target.value)} />
+                </Field>
+                <Field label="Body">
+                  <textarea className="admin-input min-h-28 md:col-span-2" value={section.body || ""} onChange={(e) => updateSection(index, "body", e.target.value)} />
+                </Field>
+                <Field label="Image URL">
+                  <input className="admin-input" value={section.image || ""} onChange={(e) => updateSection(index, "image", e.target.value)} />
+                </Field>
+                <Field label="Upload image">
+                  <label className="flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-white px-4 text-sm font-extrabold text-[#7b6074]">
+                    {uploadingSection === index ? "Uploading..." : "Choose Image"}
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => uploadSectionImage(index, e.target.files?.[0])} />
+                  </label>
+                </Field>
+                <Field label="CTA label">
+                  <input className="admin-input" value={section.ctaLabel || ""} onChange={(e) => updateSection(index, "ctaLabel", e.target.value)} />
+                </Field>
+                <Field label="CTA link">
+                  <input className="admin-input" placeholder="#appointment or /contact" value={section.ctaHref || ""} onChange={(e) => updateSection(index, "ctaHref", e.target.value)} />
+                </Field>
+                <Field label="Cards/list items, one per line">
+                  <textarea className="admin-input min-h-32 md:col-span-2" value={arrayToLines(section.items)} onChange={(e) => updateSection(index, "items", linesToArray(e.target.value))} />
+                </Field>
+              </div>
+              {section.image && <img src={section.image} alt={section.title || "Section preview"} className="mt-4 h-52 w-full rounded-2xl object-cover" />}
+            </div>
+          ))}
+          {!customSections.length && <p className="rounded-2xl bg-[#fff8fb] px-4 py-4 text-sm font-bold text-[#7b6074]">No custom section yet. Add one to start building the homepage.</p>}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -512,8 +669,7 @@ function ListEditor({ type, items, onChange, token }) {
   );
 }
 
-function Gallery({ token, onAuthError }) {
-  const { content, setContent } = useContext(SiteContext);
+function Gallery({ token, onAuthError, content, setContent }) {
   const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -636,8 +792,45 @@ export default function Admin() {
   const [token, setToken] = useState(() => localStorage.getItem("doctorAdminToken") || "");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [draftContent, setDraftContent] = useState(content);
+  const [contentDirty, setContentDirty] = useState(false);
+  const [contentLoading, setContentLoading] = useState(true);
+  const draftContentRef = useRef(content);
   const title = useMemo(() => tabs.find((tab) => tab.id === active)?.label, [active]);
   const hasSectionSave = ["home", "profile", "seo", "gallery"].includes(active);
+
+  useEffect(() => {
+    if (!token) {
+      setContentLoading(false);
+      return;
+    }
+
+    let activeLoad = true;
+    setContentLoading(true);
+    getContent()
+      .then((remoteContent) => {
+        if (!activeLoad || !remoteContent) return;
+        setDraftContent(remoteContent);
+        draftContentRef.current = remoteContent;
+        setContent(remoteContent);
+        setContentDirty(false);
+        setStatus("");
+      })
+      .catch((error) => {
+        if (activeLoad) {
+          setStatus(error.message || "Content could not load from backend.");
+        }
+      })
+      .finally(() => {
+        if (activeLoad) {
+          setContentLoading(false);
+        }
+      });
+
+    return () => {
+      activeLoad = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -646,12 +839,25 @@ export default function Admin() {
       .catch(() => setStatus("Appointments could not load from backend yet."));
   }, [token]);
 
+  function updateDraftContent(update) {
+    setContentDirty(true);
+    setDraftContent((current) => {
+      const next = typeof update === "function" ? update(current) : update;
+      draftContentRef.current = next;
+      setContent(next);
+      return next;
+    });
+  }
+
   async function persistContent() {
     setSaving(true);
     setStatus("");
     try {
-      const saved = await saveContent(content, token);
+      const saved = await saveContent(draftContentRef.current, token);
       setContent((prev) => ({ ...prev, ...saved }));
+      setDraftContent((prev) => ({ ...prev, ...saved }));
+      draftContentRef.current = { ...draftContentRef.current, ...saved };
+      setContentDirty(false);
       setStatus("Saved to backend successfully.");
     } catch (error) {
       if (isAuthError(error)) {
@@ -677,6 +883,19 @@ export default function Admin() {
 
   if (!token) {
     return <LoginScreen onLogin={setToken} />;
+  }
+
+  const adminContent = draftContent || content;
+
+  if (contentLoading) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-pearl p-4">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-soft">
+          <p className="text-sm font-bold uppercase tracking-wide text-clinic">Doctor CMS</p>
+          <h1 className="mt-2 text-2xl font-extrabold">Loading content...</h1>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -723,14 +942,14 @@ export default function Admin() {
           </div>
         </header>
         <div className="p-4 lg:p-8">
-          {active === "dashboard" && <Dashboard content={content} appointments={appointments} />}
-          {active === "home" && <HomeEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
-          {active === "profile" && <ProfileEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
-          {active === "seo" && <SeoEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
+          {active === "dashboard" && <Dashboard content={adminContent} appointments={appointments} />}
+          {active === "home" && <HomeEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
+          {active === "profile" && <ProfileEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
+          {active === "seo" && <SeoEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} token={token} />}
-          {active === "media" && <ListEditor type="video" items={content.videos} token={token} onChange={(videos) => setContent((prev) => ({ ...prev, videos }))} />}
-          {active === "blog" && <ListEditor type="blog" items={content.blogs} token={token} onChange={(blogs) => setContent((prev) => ({ ...prev, blogs }))} />}
-          {active === "gallery" && <Gallery token={token} onAuthError={handleAuthError} />}
+          {active === "media" && <ListEditor type="video" items={adminContent.videos} token={token} onChange={(videos) => updateDraftContent((prev) => ({ ...prev, videos }))} />}
+          {active === "blog" && <ListEditor type="blog" items={adminContent.blogs} token={token} onChange={(blogs) => updateDraftContent((prev) => ({ ...prev, blogs }))} />}
+          {active === "gallery" && <Gallery token={token} onAuthError={handleAuthError} content={adminContent} setContent={updateDraftContent} />}
         </div>
       </section>
     </main>

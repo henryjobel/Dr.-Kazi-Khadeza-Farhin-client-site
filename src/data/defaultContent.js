@@ -19,7 +19,7 @@
     portraitImage: "https://res.cloudinary.com/dav46zigt/image/upload/v1782026891/doctor-khadeza-farhin/doctor-portrait.jpg"
   },
   stats: [
-    { value: "19+", label: "Years Experience" },
+    { value: "20+", label: "Years Experience" },
     { value: "FCPS", label: "Obs & Gyn" },
     { value: "FCPS", label: "RE & Infertility" }
   ],
@@ -129,7 +129,7 @@
   home: {
     heroBadge: "FCPS Obs & Gyn | FCPS Reproductive Endocrinology & Infertility",
     heroHeading: "Fertility, pregnancy & women's health care by",
-    experienceYears: "19+",
+    experienceYears: "20+",
     experienceLabel: "Clinical Experience",
     specialistItems: [
       "Infertility IVF Specialist",
@@ -148,6 +148,19 @@
       "Pregnancy and delivery planning",
       "PCOS, endometriosis and menstrual care",
       "Post-treatment and family follow-up"
+    ],
+    customSections: [
+      {
+        type: "cards",
+        eyebrow: "Patient Care",
+        title: "Editable homepage section",
+        body: "Use the admin homepage CMS to update this section, add cards, or create more homepage blocks.",
+        image: "",
+        ctaLabel: "Book Appointment",
+        ctaHref: "#appointment",
+        items: ["Fertility consultation", "Pregnancy planning", "Gynecology follow-up"],
+        enabled: true
+      }
     ]
   },
   appointments: [
@@ -169,4 +182,3 @@
     }
   ]
 };
-

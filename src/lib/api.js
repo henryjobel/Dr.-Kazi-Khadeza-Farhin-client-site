@@ -3,6 +3,7 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://backe
 export async function apiRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
     headers: {
       ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {})
