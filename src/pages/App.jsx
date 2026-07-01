@@ -26,7 +26,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
-import { clinicalSkills, education, professionalExperience, researchHighlights, specialistTraining } from "../data/profileDetails.js";
 import { createAppointment } from "../lib/api.js";
 
 const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
@@ -325,6 +324,7 @@ function AppointmentForm() {
 
 function CareMoments() {
   const { content } = useContext(SiteContext);
+  const home = content.home || {};
   const featured = content.moments.slice(0, 5);
 
   if (!featured.length) return null;
@@ -334,13 +334,13 @@ function CareMoments() {
       <div className="mx-auto max-w-[1440px] px-4 lg:px-14 xl:px-20">
         <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="font-bold uppercase tracking-wide text-clinic">Care Moments</p>
+            <p className="font-bold uppercase tracking-wide text-clinic">{home.careMomentsEyebrow || "Care Moments"}</p>
             <h2 className="mt-2 max-w-3xl text-4xl font-extrabold leading-tight text-ink md:text-5xl">
-              Real warmth from pregnancy, delivery and family care journeys
+              {home.careMomentsTitle || "Real warmth from pregnancy, delivery and family care journeys"}
             </h2>
           </div>
           <p className="max-w-md leading-7 text-slate-600">
-            A visual glimpse of the trust, comfort and continuity patients experience throughout consultation, treatment and follow-up.
+            {home.careMomentsSubtitle || "A visual glimpse of the trust, comfort and continuity patients experience throughout consultation, treatment and follow-up."}
           </p>
         </div>
 
@@ -371,6 +371,7 @@ function CareMoments() {
 
 function JourneyHighlights() {
   const { content } = useContext(SiteContext);
+  const home = content.home || {};
   const items = content.home?.journeyItems || [
     "Fertility evaluation and counseling",
     "Pregnancy and delivery planning",
@@ -392,12 +393,12 @@ function JourneyHighlights() {
           ))}
         </div>
         <div className="flex flex-col justify-center">
-          <p className="font-bold uppercase tracking-wide text-clinic">Why Patients Trust Her</p>
+          <p className="font-bold uppercase tracking-wide text-clinic">{home.journeyEyebrow || "Why Patients Trust Her"}</p>
           <h2 className="mt-2 text-4xl font-extrabold leading-tight text-ink md:text-5xl">
-            A calm, experienced doctor for sensitive women&apos;s health decisions
+            {home.journeyTitle || "A calm, experienced doctor for sensitive women's health decisions"}
           </h2>
           <p className="mt-5 text-lg leading-8 text-slate-600">
-            From infertility diagnosis to pregnancy care, every patient needs clarity, privacy and steady guidance. The experience is organized around careful listening, evidence-based decisions and ongoing communication.
+            {home.journeyBody || "From infertility diagnosis to pregnancy care, every patient needs clarity, privacy and steady guidance. The experience is organized around careful listening, evidence-based decisions and ongoing communication."}
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             {items.map((item) => (
@@ -466,15 +467,16 @@ function CustomHomeSections() {
 
 function Services() {
   const { content } = useContext(SiteContext);
+  const home = content.home || {};
   return (
     <section id="services" className="section-pad">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <p className="font-bold uppercase tracking-wide text-clinic">Services</p>
-            <h2 className="mt-2 text-4xl font-extrabold text-ink">Specialized care for fertility, pregnancy and women&apos;s health</h2>
+            <p className="font-bold uppercase tracking-wide text-clinic">{home.servicesEyebrow || "Services"}</p>
+            <h2 className="mt-2 text-4xl font-extrabold text-ink">{home.servicesTitle || "Specialized care for fertility, pregnancy and women's health"}</h2>
           </div>
-          <p className="max-w-md text-slate-600">Every care plan is explained clearly, with diagnostic guidance, treatment options and follow-up built into the patient journey.</p>
+          <p className="max-w-md text-slate-600">{home.servicesSubtitle || "Every care plan is explained clearly, with diagnostic guidance, treatment options and follow-up built into the patient journey."}</p>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {content.services.map((service) => (
@@ -498,7 +500,7 @@ function About() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr]">
         <img src={content.profile.portraitImage} alt={content.profile.name} className="h-full min-h-[420px] w-full rounded-[32px] object-cover shadow-soft" />
         <div className="flex flex-col justify-center">
-          <p className="font-bold uppercase tracking-wide text-clinic">About Doctor</p>
+          <p className="font-bold uppercase tracking-wide text-clinic">{content.home?.aboutEyebrow || "About Doctor"}</p>
           <h2 className="mt-2 text-4xl font-extrabold text-ink">{content.profile.title}</h2>
           <p className="mt-5 text-lg leading-8 text-slate-600">{content.profile.intro}</p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -515,18 +517,31 @@ function About() {
 }
 
 function Credentials() {
+  const { content } = useContext(SiteContext);
+  const home = content.home || {};
+  const portfolio = content.portfolio || {};
+  const education = portfolio.education || [];
+  const professionalExperience = portfolio.experience || [];
+  const specialistTraining = portfolio.specialistTraining || [];
+  const clinicalSkills = portfolio.clinicalSkills || [];
+  const researchHighlights = portfolio.research || [];
+
+  if (!education.length && !professionalExperience.length && !specialistTraining.length && !clinicalSkills.length && !researchHighlights.length) {
+    return null;
+  }
+
   return (
     <section id="experience" className="bg-white py-20">
       <div className="mx-auto max-w-[1320px] px-4 lg:px-14 xl:px-20">
         <div className="mb-10 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
           <div>
-            <p className="font-bold uppercase tracking-wide text-clinic">Portfolio</p>
+            <p className="font-bold uppercase tracking-wide text-clinic">{home.portfolioEyebrow || "Portfolio"}</p>
             <h2 className="mt-2 text-4xl font-extrabold leading-tight text-ink md:text-5xl">
-              Education, experience and specialist training
+              {home.portfolioTitle || "Education, experience and specialist training"}
             </h2>
           </div>
           <p className="max-w-2xl text-lg leading-8 text-slate-600">
-            A CV-based overview of Dr. Farhin&apos;s academic background, government service, private consultancy and fertility-focused clinical work.
+            {home.portfolioSubtitle || "A CV-based overview of Dr. Farhin's academic background, government service, private consultancy and fertility-focused clinical work."}
           </p>
         </div>
 

@@ -29,7 +29,27 @@ const emptyContent = {
     specialistItems: [],
     aboutItems: [],
     journeyItems: [],
+    careMomentsEyebrow: "",
+    careMomentsTitle: "",
+    careMomentsSubtitle: "",
+    servicesEyebrow: "",
+    servicesTitle: "",
+    servicesSubtitle: "",
+    journeyEyebrow: "",
+    journeyTitle: "",
+    journeyBody: "",
+    aboutEyebrow: "",
+    portfolioEyebrow: "",
+    portfolioTitle: "",
+    portfolioSubtitle: "",
     customSections: []
+  },
+  portfolio: {
+    education: [],
+    experience: [],
+    specialistTraining: [],
+    clinicalSkills: [],
+    research: []
   }
 };
 

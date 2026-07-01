@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Award,
   CalendarDays,
   FileText,
   Home,
@@ -21,6 +22,7 @@ const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "home", label: "Home Page", icon: Home },
   { id: "profile", label: "Profile", icon: Settings },
+  { id: "portfolio", label: "Portfolio", icon: Award },
   { id: "seo", label: "SEO", icon: FileText },
   { id: "appointments", label: "Appointments", icon: CalendarDays },
   { id: "media", label: "Videos", icon: Video },
@@ -308,8 +310,29 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Care Moments section</h3>
+        <p className="mb-5 text-sm text-slate-500">Heading text above the gallery preview on the homepage. Images are managed in the Images tab.</p>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.careMomentsEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, careMomentsEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.careMomentsTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, careMomentsTitle: e.target.value }); }} /></Field>
+          <Field label="Subtitle"><textarea className="admin-input min-h-24" value={home.careMomentsSubtitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, careMomentsSubtitle: e.target.value }); }} /></Field>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Services section</h3>
+        <p className="mb-5 text-sm text-slate-500">Heading text above the services grid. The service list itself is edited in the Profile tab.</p>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.servicesEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, servicesEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.servicesTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, servicesTitle: e.target.value }); }} /></Field>
+          <Field label="Subtitle"><textarea className="admin-input min-h-24" value={home.servicesSubtitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, servicesSubtitle: e.target.value }); }} /></Field>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-1 text-xl font-extrabold">About section checklist</h3>
         <p className="mb-5 text-sm text-slate-500">One item per line — the 4 boxes shown in the About section.</p>
+        <Field label="Eyebrow tag"><input className="admin-input mb-4" value={home.aboutEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, aboutEyebrow: e.target.value }); }} /></Field>
         <Field label="About checklist (one per line)">
           <textarea className="admin-input min-h-28" value={aboutItems} onChange={(e) => { setDirty(true); setAboutItems(e.target.value); }} />
         </Field>
@@ -318,9 +341,24 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-1 text-xl font-extrabold">Why patients trust her</h3>
         <p className="mb-5 text-sm text-slate-500">One item per line — shown in the journey highlights section.</p>
+        <div className="grid gap-4 mb-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.journeyEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, journeyEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.journeyTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, journeyTitle: e.target.value }); }} /></Field>
+          <Field label="Body text"><textarea className="admin-input min-h-24" value={home.journeyBody || ""} onChange={(e) => { setDirty(true); setHome({ ...home, journeyBody: e.target.value }); }} /></Field>
+        </div>
         <Field label="Journey items (one per line)">
           <textarea className="admin-input min-h-28" value={journeyItems} onChange={(e) => { setDirty(true); setJourneyItems(e.target.value); }} />
         </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Portfolio section</h3>
+        <p className="mb-5 text-sm text-slate-500">Heading text above the Education/Experience/Training cards. The lists themselves are edited in the Portfolio tab.</p>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.portfolioEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, portfolioEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.portfolioTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, portfolioTitle: e.target.value }); }} /></Field>
+          <Field label="Subtitle"><textarea className="admin-input min-h-24" value={home.portfolioSubtitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, portfolioSubtitle: e.target.value }); }} /></Field>
+        </div>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -494,6 +532,152 @@ function ProfileEditor({ content, setContent, token, onAuthError }) {
         <img src={draft.portraitImage} alt={`${draft.name} portrait`} className="mt-4 h-44 w-full rounded-3xl object-cover" />
         <p className="mt-4 text-2xl font-extrabold">{draft.name}</p>
         <p className="mt-2 text-slate-500">{draft.title}</p>
+      </div>
+    </div>
+  );
+}
+
+const emptyEducationRow = () => ({ degree: "", meta: "", institute: "", year: "" });
+const emptyExperienceRow = () => ({ role: "", place: "", period: "" });
+
+function PortfolioEditor({ content, setContent, token, onAuthError }) {
+  const portfolio = content.portfolio || {};
+  const [education, setEducation] = useState(portfolio.education || []);
+  const [experience, setExperience] = useState(portfolio.experience || []);
+  const [specialistTraining, setSpecialistTraining] = useState(arrayToLines(portfolio.specialistTraining));
+  const [clinicalSkills, setClinicalSkills] = useState(arrayToLines(portfolio.clinicalSkills));
+  const [research, setResearch] = useState(arrayToLines(portfolio.research));
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const p = content.portfolio || {};
+    setEducation(p.education || []);
+    setExperience(p.experience || []);
+    setSpecialistTraining(arrayToLines(p.specialistTraining));
+    setClinicalSkills(arrayToLines(p.clinicalSkills));
+    setResearch(arrayToLines(p.research));
+  }, [content._id, content.updatedAt]);
+
+  async function save() {
+    const newContent = {
+      ...content,
+      portfolio: {
+        education,
+        experience,
+        specialistTraining: linesToArray(specialistTraining),
+        clinicalSkills: linesToArray(clinicalSkills),
+        research: linesToArray(research)
+      }
+    };
+    setContent(newContent);
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved successfully.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateEducation(index, key, value) {
+    setEducation((rows) => rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)));
+  }
+
+  function updateExperience(index, key, value) {
+    setExperience((rows) => rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row)));
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-extrabold">Education</h3>
+            <p className="mt-1 text-sm text-slate-500">Academic qualifications shown in the Portfolio section.</p>
+          </div>
+          <button onClick={() => setEducation((rows) => [...rows, emptyEducationRow()])} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Degree
+          </button>
+        </div>
+        <div className="space-y-4">
+          {education.map((row, index) => (
+            <div key={index} className="grid gap-3 rounded-2xl border border-slate-100 bg-[#fff8fb] p-4 md:grid-cols-2">
+              <Field label="Degree"><input className="admin-input" value={row.degree || ""} onChange={(e) => updateEducation(index, "degree", e.target.value)} /></Field>
+              <Field label="Year"><input className="admin-input" value={row.year || ""} onChange={(e) => updateEducation(index, "year", e.target.value)} /></Field>
+              <Field label="Description"><input className="admin-input" value={row.meta || ""} onChange={(e) => updateEducation(index, "meta", e.target.value)} /></Field>
+              <Field label="Institute"><input className="admin-input" value={row.institute || ""} onChange={(e) => updateEducation(index, "institute", e.target.value)} /></Field>
+              <button onClick={() => setEducation((rows) => rows.filter((_, rowIndex) => rowIndex !== index))} className="inline-flex w-fit items-center gap-2 rounded-xl border border-red-100 px-3 py-2 text-sm font-bold text-red-600 md:col-span-2">
+                <Trash2 size={15} /> Remove
+              </button>
+            </div>
+          ))}
+          {!education.length && <p className="text-sm font-bold text-slate-400">No education entries yet.</p>}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-extrabold">Professional Experience</h3>
+            <p className="mt-1 text-sm text-slate-500">Clinical career timeline shown in the Portfolio section.</p>
+          </div>
+          <button onClick={() => setExperience((rows) => [...rows, emptyExperienceRow()])} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Role
+          </button>
+        </div>
+        <div className="space-y-4">
+          {experience.map((row, index) => (
+            <div key={index} className="grid gap-3 rounded-2xl border border-slate-100 bg-[#fff8fb] p-4 md:grid-cols-2">
+              <Field label="Role"><input className="admin-input" value={row.role || ""} onChange={(e) => updateExperience(index, "role", e.target.value)} /></Field>
+              <Field label="Period"><input className="admin-input" value={row.period || ""} onChange={(e) => updateExperience(index, "period", e.target.value)} /></Field>
+              <Field label="Place"><input className="admin-input md:col-span-2" value={row.place || ""} onChange={(e) => updateExperience(index, "place", e.target.value)} /></Field>
+              <button onClick={() => setExperience((rows) => rows.filter((_, rowIndex) => rowIndex !== index))} className="inline-flex w-fit items-center gap-2 rounded-xl border border-red-100 px-3 py-2 text-sm font-bold text-red-600 md:col-span-2">
+                <Trash2 size={15} /> Remove
+              </button>
+            </div>
+          ))}
+          {!experience.length && <p className="text-sm font-bold text-slate-400">No experience entries yet.</p>}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Specialist Training</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line.</p>
+        <Field label="Specialist training (one per line)">
+          <textarea className="admin-input min-h-32" value={specialistTraining} onChange={(e) => setSpecialistTraining(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Clinical Skills</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line.</p>
+        <Field label="Clinical skills (one per line)">
+          <textarea className="admin-input min-h-32" value={clinicalSkills} onChange={(e) => setClinicalSkills(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Research & Achievements</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line.</p>
+        <Field label="Research highlights (one per line)">
+          <textarea className="admin-input min-h-32" value={research} onChange={(e) => setResearch(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">
+          <Save size={18} /> {saving ? "Saving..." : "Save Portfolio"}
+        </button>
+        {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
       </div>
     </div>
   );
@@ -797,7 +981,7 @@ export default function Admin() {
   const [contentLoading, setContentLoading] = useState(true);
   const draftContentRef = useRef(content);
   const title = useMemo(() => tabs.find((tab) => tab.id === active)?.label, [active]);
-  const hasSectionSave = ["home", "profile", "seo", "gallery"].includes(active);
+  const hasSectionSave = ["home", "profile", "portfolio", "seo", "gallery"].includes(active);
 
   useEffect(() => {
     if (!token) {
@@ -948,6 +1132,7 @@ export default function Admin() {
           {active === "dashboard" && <Dashboard content={adminContent} appointments={appointments} />}
           {active === "home" && <HomeEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "profile" && <ProfileEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
+          {active === "portfolio" && <PortfolioEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "seo" && <SeoEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} token={token} />}
           {active === "media" && <ListEditor type="video" items={adminContent.videos} token={token} onChange={(videos) => updateDraftContent((prev) => ({ ...prev, videos }))} />}
