@@ -21,6 +21,7 @@ const emptyContent = {
   videos: [],
   blogs: [],
   moments: [],
+  reels: [],
   home: {
     heroBadge: "",
     heroHeading: "",
@@ -42,6 +43,9 @@ const emptyContent = {
     portfolioEyebrow: "",
     portfolioTitle: "",
     portfolioSubtitle: "",
+    reelsEyebrow: "",
+    reelsTitle: "",
+    reelsSubtitle: "",
     customSections: []
   },
   portfolio: {

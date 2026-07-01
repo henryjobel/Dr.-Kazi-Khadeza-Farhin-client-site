@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Award,
   CalendarDays,
+  Clapperboard,
   FileText,
   Home,
   Image,
@@ -17,6 +18,7 @@ import {
 import { SiteContext } from "../siteContext.jsx";
 import { getAppointments, getContent, loginAdmin, saveContent, updateAppointment, uploadImage } from "../lib/api.js";
 import { slugify } from "../lib/seo.js";
+import { parseVideoUrl } from "../lib/video.js";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const tabs = [
   { id: "portfolio", label: "Portfolio", icon: Award },
   { id: "seo", label: "SEO", icon: FileText },
   { id: "appointments", label: "Appointments", icon: CalendarDays },
+  { id: "reels", label: "Reels", icon: Clapperboard },
   { id: "media", label: "Videos", icon: Video },
   { id: "blog", label: "Blog", icon: FileText },
   { id: "gallery", label: "Images", icon: Image }
@@ -307,6 +310,16 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         <Field label="Specialist items (one per line)">
           <textarea className="admin-input min-h-32" value={specialistItems} onChange={(e) => { setDirty(true); setSpecialistItems(e.target.value); }} />
         </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Reels section</h3>
+        <p className="mb-5 text-sm text-slate-500">Heading text above the short-video reel cards. The reel cards themselves are managed in the Reels tab.</p>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.reelsEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, reelsEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.reelsTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, reelsTitle: e.target.value }); }} /></Field>
+          <Field label="Subtitle"><textarea className="admin-input min-h-24" value={home.reelsSubtitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, reelsSubtitle: e.target.value }); }} /></Field>
+        </div>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -853,6 +866,72 @@ function ListEditor({ type, items, onChange, token }) {
   );
 }
 
+const emptyReel = () => ({ title: "", videoUrl: "", thumbnail: "" });
+
+function ReelsEditor({ items, onChange, token }) {
+  const [uploadingIndex, setUploadingIndex] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+
+  function update(index, key, value) {
+    onChange(items.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item)));
+  }
+
+  async function uploadThumbnail(index, file) {
+    if (!file) return;
+    setUploadingIndex(index);
+    setUploadError("");
+    try {
+      const result = await uploadImage(file, token);
+      update(index, "thumbnail", result.url);
+    } catch (error) {
+      setUploadError(error.message || "Image upload failed");
+    } finally {
+      setUploadingIndex(null);
+    }
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-extrabold">Reels</h3>
+          <p className="mt-1 text-sm text-slate-500">Paste a YouTube or Facebook video link. Cards preview on hover (or tap on mobile). Six cards fit neatly in one row.</p>
+        </div>
+        <button onClick={() => onChange([...items, emptyReel()])} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white"><Plus size={16} /> Add Reel</button>
+      </div>
+      {uploadError && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((item, index) => {
+          const parsed = parseVideoUrl(item.videoUrl);
+          const poster = item.thumbnail || parsed?.thumbnail;
+          return (
+            <div key={index} className="rounded-2xl border border-slate-100 p-4">
+              <div className="grid gap-3">
+                <Field label="Title"><input className="admin-input" value={item.title} onChange={(e) => update(index, "title", e.target.value)} /></Field>
+                <Field label="Video link (YouTube or Facebook)"><input className="admin-input" placeholder="https://..." value={item.videoUrl} onChange={(e) => update(index, "videoUrl", e.target.value)} /></Field>
+                {item.videoUrl && (
+                  <p className="text-xs font-bold text-slate-500">
+                    {parsed?.platform === "youtube" && "Detected: YouTube"}
+                    {parsed?.platform === "facebook" && "Detected: Facebook"}
+                    {parsed?.platform === "unknown" && "Link not recognized as YouTube or Facebook"}
+                  </p>
+                )}
+                <label className="flex h-12 cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-[#fff8fb] px-4 text-sm font-extrabold text-[#7b6074]">
+                  {uploadingIndex === index ? "Uploading..." : "Upload custom thumbnail (optional)"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => uploadThumbnail(index, e.target.files?.[0])} />
+                </label>
+              </div>
+              {poster && <img src={poster} alt={item.title || "Reel thumbnail"} className="mt-3 aspect-[9/16] w-full rounded-2xl object-cover" />}
+              <button onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-red-100 px-3 py-2 text-sm font-bold text-red-600"><Trash2 size={15} /> Remove</button>
+            </div>
+          );
+        })}
+        {!items.length && <p className="rounded-2xl bg-[#fff8fb] px-4 py-4 text-sm font-bold text-[#7b6074]">No reels yet. Add one to show it on the homepage.</p>}
+      </div>
+    </div>
+  );
+}
+
 function Gallery({ token, onAuthError, content, setContent }) {
   const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
   const [uploading, setUploading] = useState(false);
@@ -1135,6 +1214,7 @@ export default function Admin() {
           {active === "portfolio" && <PortfolioEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "seo" && <SeoEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} token={token} />}
+          {active === "reels" && <ReelsEditor items={adminContent.reels || []} token={token} onChange={(reels) => updateDraftContent((prev) => ({ ...prev, reels }))} />}
           {active === "media" && <ListEditor type="video" items={adminContent.videos} token={token} onChange={(videos) => updateDraftContent((prev) => ({ ...prev, videos }))} />}
           {active === "blog" && <ListEditor type="blog" items={adminContent.blogs} token={token} onChange={(blogs) => updateDraftContent((prev) => ({ ...prev, blogs }))} />}
           {active === "gallery" && <Gallery token={token} onAuthError={handleAuthError} content={adminContent} setContent={updateDraftContent} />}

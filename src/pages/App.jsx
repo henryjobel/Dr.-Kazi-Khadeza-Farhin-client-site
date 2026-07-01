@@ -18,6 +18,7 @@ import {
   Menu,
   Microscope,
   Phone,
+  Play,
   ShieldCheck,
   Sparkles,
   Star,
@@ -28,6 +29,7 @@ import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { createAppointment } from "../lib/api.js";
 import { getEarliestBookableDate, isSameDayBookingClosed } from "../lib/booking.js";
+import { parseVideoUrl } from "../lib/video.js";
 
 const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
 
@@ -333,6 +335,80 @@ function AppointmentForm() {
           </button>
           {notice && <p className="mt-3 rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{notice}</p>}
         </form>
+      </div>
+    </section>
+  );
+}
+
+function ReelCard({ reel }) {
+  const [playing, setPlaying] = useState(false);
+  const parsed = parseVideoUrl(reel.videoUrl);
+  const poster = reel.thumbnail || parsed?.thumbnail;
+  const canPreview = playing && parsed?.previewEmbedUrl;
+
+  return (
+    <div
+      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-[24px] bg-ink shadow-soft"
+      onMouseEnter={() => setPlaying(true)}
+      onMouseLeave={() => setPlaying(false)}
+      onClick={() => setPlaying((current) => !current)}
+    >
+      {canPreview ? (
+        <iframe
+          src={parsed.previewEmbedUrl}
+          title={reel.title || "Reel"}
+          className="absolute inset-0 h-full w-full"
+          allow="autoplay; encrypted-media"
+          frameBorder="0"
+        />
+      ) : (
+        <>
+          {poster ? (
+            <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft transition group-hover:scale-110">
+              <Play size={22} fill="currentColor" />
+            </span>
+          </div>
+        </>
+      )}
+      {!canPreview && reel.title && (
+        <p className="absolute inset-x-0 bottom-0 p-4 text-sm font-extrabold leading-5 text-white drop-shadow">{reel.title}</p>
+      )}
+    </div>
+  );
+}
+
+function ReelsSection() {
+  const { content } = useContext(SiteContext);
+  const home = content.home || {};
+  const reels = content.reels || [];
+
+  if (!reels.length) return null;
+
+  return (
+    <section className="bg-white py-20">
+      <div className="mx-auto max-w-[1440px] px-4 lg:px-14 xl:px-20">
+        <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="font-bold uppercase tracking-wide text-clinic">{home.reelsEyebrow || "Short Health Tips"}</p>
+            <h2 className="mt-2 max-w-3xl text-4xl font-extrabold leading-tight text-ink md:text-5xl">
+              {home.reelsTitle || "Quick advice from Mam, one reel at a time"}
+            </h2>
+          </div>
+          <p className="max-w-md leading-7 text-slate-600">
+            {home.reelsSubtitle || "Bite-sized guidance on fertility, pregnancy and women's health. Hover or tap a card to watch."}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {reels.map((reel) => (
+            <ReelCard key={reel._id || reel.videoUrl} reel={reel} />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -719,6 +795,7 @@ export default function App() {
       <Hero />
       <CustomHomeSections />
       <AppointmentForm />
+      <ReelsSection />
       <CareMoments />
       <Services />
       <JourneyHighlights />
