@@ -126,6 +126,30 @@
       image: "https://res.cloudinary.com/dav46zigt/image/upload/v1782026904/doctor-khadeza-farhin/moments/729769565_1003832002381326_8499605942480113702_n.jpg"
     }
   ],
+  home: {
+    heroBadge: "FCPS Obs & Gyn | FCPS Reproductive Endocrinology & Infertility",
+    heroHeading: "Fertility, pregnancy & women's health care by",
+    experienceYears: "19+",
+    experienceLabel: "Clinical Experience",
+    specialistItems: [
+      "Infertility IVF Specialist",
+      "Obstetrics & Gynaecology",
+      "Laparoscopy & Hysteroscopy",
+      "IUI, PCOS & Endometriosis Care"
+    ],
+    aboutItems: [
+      "Infertility & ART care",
+      "Obs & Gyn procedures",
+      "Laparoscopy & hysteroscopy",
+      "PCOS and endometriosis care"
+    ],
+    journeyItems: [
+      "Fertility evaluation and counseling",
+      "Pregnancy and delivery planning",
+      "PCOS, endometriosis and menstrual care",
+      "Post-treatment and family follow-up"
+    ]
+  },
   appointments: [
     {
       name: "Nusrat Jahan",

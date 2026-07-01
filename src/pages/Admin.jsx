@@ -19,6 +19,7 @@ import { slugify } from "../lib/seo.js";
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "home", label: "Home Page", icon: Home },
   { id: "profile", label: "Profile", icon: Settings },
   { id: "seo", label: "SEO", icon: FileText },
   { id: "appointments", label: "Appointments", icon: CalendarDays },
@@ -43,6 +44,10 @@ function Field({ label, children }) {
       {children}
     </label>
   );
+}
+
+function isAuthError(error) {
+  return error?.status === 401 || /invalid token|authentication required/i.test(error?.message || "");
 }
 
 function LoginScreen({ onLogin }) {
@@ -127,14 +132,157 @@ function Dashboard({ content, appointments }) {
   );
 }
 
-function ProfileEditor({ content, setContent, token }) {
+function HomeEditor({ content, setContent, token, onAuthError }) {
+  const [stats, setStats] = useState(content.stats || []);
+  const [home, setHome] = useState(content.home || {});
+  const [specialistItems, setSpecialistItems] = useState((content.home?.specialistItems || []).join("\n"));
+  const [aboutItems, setAboutItems] = useState((content.home?.aboutItems || []).join("\n"));
+  const [journeyItems, setJourneyItems] = useState((content.home?.journeyItems || []).join("\n"));
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    setStats(content.stats || []);
+    setHome(content.home || {});
+    setSpecialistItems((content.home?.specialistItems || []).join("\n"));
+    setAboutItems((content.home?.aboutItems || []).join("\n"));
+    setJourneyItems((content.home?.journeyItems || []).join("\n"));
+  }, [content._id, content.updatedAt]);
+
+  async function save() {
+    const newContent = {
+      ...content,
+      stats,
+      home: {
+        ...home,
+        specialistItems: specialistItems.split("\n").map((s) => s.trim()).filter(Boolean),
+        aboutItems: aboutItems.split("\n").map((s) => s.trim()).filter(Boolean),
+        journeyItems: journeyItems.split("\n").map((s) => s.trim()).filter(Boolean)
+      }
+    };
+    setContent(newContent);
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved successfully.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Hero stats (3 cards)</h3>
+        <p className="mb-5 text-sm text-slate-500">The 3 stat boxes shown below the hero buttons.</p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {stats.map((stat, i) => (
+            <div key={i} className="rounded-2xl border border-slate-100 bg-[#fff8fb] p-4 space-y-3">
+              <Field label="Value">
+                <input className="admin-input" value={stat.value} onChange={(e) => setStats(stats.map((s, si) => si === i ? { ...s, value: e.target.value } : s))} />
+              </Field>
+              <Field label="Label">
+                <input className="admin-input" value={stat.label} onChange={(e) => setStats(stats.map((s, si) => si === i ? { ...s, label: e.target.value } : s))} />
+              </Field>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Hero section text</h3>
+        <p className="mb-5 text-sm text-slate-500">The badge, heading and experience badge on the hero.</p>
+        <div className="grid gap-4">
+          <Field label="Qualification badge (top tag)">
+            <input className="admin-input" value={home.heroBadge || ""} onChange={(e) => setHome({ ...home, heroBadge: e.target.value })} />
+          </Field>
+          <Field label="Main heading (doctor name is added automatically after this)">
+            <input className="admin-input" value={home.heroHeading || ""} onChange={(e) => setHome({ ...home, heroHeading: e.target.value })} />
+          </Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Experience years (right badge)">
+              <input className="admin-input" value={home.experienceYears || ""} onChange={(e) => setHome({ ...home, experienceYears: e.target.value })} />
+            </Field>
+            <Field label="Experience label">
+              <input className="admin-input" value={home.experienceLabel || ""} onChange={(e) => setHome({ ...home, experienceLabel: e.target.value })} />
+            </Field>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Specialist care slider</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line — these slide automatically on the hero image card.</p>
+        <Field label="Specialist items (one per line)">
+          <textarea className="admin-input min-h-32" value={specialistItems} onChange={(e) => setSpecialistItems(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">About section checklist</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line — the 4 boxes shown in the About section.</p>
+        <Field label="About checklist (one per line)">
+          <textarea className="admin-input min-h-28" value={aboutItems} onChange={(e) => setAboutItems(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Why patients trust her</h3>
+        <p className="mb-5 text-sm text-slate-500">One item per line — shown in the journey highlights section.</p>
+        <Field label="Journey items (one per line)">
+          <textarea className="admin-input min-h-28" value={journeyItems} onChange={(e) => setJourneyItems(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">
+          <Save size={18} /> {saving ? "Saving..." : "Save Home Content"}
+        </button>
+        {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
+      </div>
+    </div>
+  );
+}
+
+function ProfileEditor({ content, setContent, token, onAuthError }) {
   const [draft, setDraft] = useState(content.profile);
   const [services, setServices] = useState(content.services.join("\n"));
   const [uploading, setUploading] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
 
-  function save() {
-    setContent((prev) => ({ ...prev, profile: draft, services: services.split("\n").filter(Boolean) }));
+  useEffect(() => {
+    setDraft(content.profile);
+    setServices((content.services || []).join("\n"));
+  }, [content._id, content.updatedAt]);
+
+  async function save() {
+    const newContent = { ...content, profile: draft, services: services.split("\n").map((service) => service.trim()).filter(Boolean) };
+    setContent(newContent);
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved successfully.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleProfileUpload(file, key) {
@@ -178,7 +326,10 @@ function ProfileEditor({ content, setContent, token }) {
           </label>
         </div>
         {uploadError && <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
-        <button onClick={save} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white"><Save size={18} /> Save Content</button>
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70"><Save size={18} /> {saving ? "Saving..." : "Save Profile"}</button>
+          {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
+        </div>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-5 text-xl font-extrabold">Live preview</h3>
@@ -191,11 +342,33 @@ function ProfileEditor({ content, setContent, token }) {
   );
 }
 
-function SeoEditor({ content, setContent }) {
+function SeoEditor({ content, setContent, token, onAuthError }) {
   const [draft, setDraft] = useState(content.seo || {});
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
 
-  function save() {
-    setContent((prev) => ({ ...prev, seo: draft }));
+  useEffect(() => {
+    setDraft(content.seo || {});
+  }, [content._id, content.updatedAt]);
+
+  async function save() {
+    const newContent = { ...content, seo: draft };
+    setContent(newContent);
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved successfully.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -209,7 +382,10 @@ function SeoEditor({ content, setContent }) {
           <Field label="SEO keywords"><textarea className="admin-input min-h-24" value={draft.keywords || ""} onChange={(e) => setDraft({ ...draft, keywords: e.target.value })} /></Field>
           <Field label="Open Graph image URL"><input className="admin-input" value={draft.ogImage || ""} onChange={(e) => setDraft({ ...draft, ogImage: e.target.value })} /></Field>
         </div>
-        <button onClick={save} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white"><Save size={18} /> Apply SEO</button>
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70"><Save size={18} /> {saving ? "Saving..." : "Save SEO"}</button>
+          {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
+        </div>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-[#fff8fb] p-6 shadow-sm">
         <h3 className="text-xl font-extrabold">Search preview</h3>
@@ -336,11 +512,13 @@ function ListEditor({ type, items, onChange, token }) {
   );
 }
 
-function Gallery({ token }) {
+function Gallery({ token, onAuthError }) {
   const { content, setContent } = useContext(SiteContext);
   const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
 
   async function handleMomentUpload(file) {
     if (!file) return;
@@ -357,20 +535,51 @@ function Gallery({ token }) {
     }
   }
 
-  function addMoment() {
+  async function addMoment() {
     if (!draft.image) return;
-    setContent((prev) => ({
-      ...prev,
-      moments: [
-        {
-          title: draft.title || "Care moment",
-          caption: draft.caption || "Uploaded from admin gallery.",
-          image: draft.image
-        },
-        ...(prev.moments || [])
-      ]
-    }));
+    const newMoment = {
+      title: draft.title || "Care moment",
+      caption: draft.caption || "Uploaded from admin gallery.",
+      image: draft.image
+    };
+    const newContent = { ...content, moments: [newMoment, ...(content.moments || [])] };
+    setContent(newContent);
     setDraft({ title: "", caption: "", image: "" });
+    setSaving(true);
+    setSaveStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setSaveStatus("Gallery saved.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setSaveStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteMoment(index) {
+    const newContent = { ...content, moments: content.moments.filter((_, i) => i !== index) };
+    setContent(newContent);
+    setSaving(true);
+    setSaveStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setSaveStatus("Gallery saved.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setSaveStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -390,7 +599,8 @@ function Gallery({ token }) {
             </label>
             {uploadError && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
             {draft.image && <img src={draft.image} alt="Uploaded preview" className="h-56 w-full rounded-2xl object-cover" />}
-            <button onClick={addMoment} className="rounded-2xl bg-ink px-5 py-3 font-bold text-white">Add to Gallery</button>
+            <button onClick={addMoment} disabled={saving} className="rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">{saving ? "Saving..." : "Add to Gallery"}</button>
+            {saveStatus && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{saveStatus}</p>}
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -400,12 +610,18 @@ function Gallery({ token }) {
       </div>
       <h4 className="mt-8 text-lg font-extrabold">Care moments gallery</h4>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {content.moments.map((item) => (
+        {content.moments.map((item, index) => (
           <div key={item.image} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <img className="h-48 w-full object-cover" src={item.image} alt={item.title} />
             <div className="p-4">
               <p className="font-bold">{item.title}</p>
               <p className="mt-1 text-sm leading-5 text-slate-500">{item.caption}</p>
+              <button
+                onClick={() => deleteMoment(index)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-red-100 px-3 py-1.5 text-xs font-bold text-red-500"
+              >
+                <Trash2 size={13} /> Delete
+              </button>
             </div>
           </div>
         ))}
@@ -421,6 +637,7 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const title = useMemo(() => tabs.find((tab) => tab.id === active)?.label, [active]);
+  const hasSectionSave = ["home", "profile", "seo", "gallery"].includes(active);
 
   useEffect(() => {
     if (!token) return;
@@ -437,6 +654,10 @@ export default function Admin() {
       setContent((prev) => ({ ...prev, ...saved }));
       setStatus("Saved to backend successfully.");
     } catch (error) {
+      if (isAuthError(error)) {
+        handleAuthError();
+        return;
+      }
       setStatus(error.message || "Save failed. Check backend env and login.");
     } finally {
       setSaving(false);
@@ -446,6 +667,12 @@ export default function Admin() {
   function logout() {
     localStorage.removeItem("doctorAdminToken");
     setToken("");
+  }
+
+  function handleAuthError() {
+    localStorage.removeItem("doctorAdminToken");
+    setToken("");
+    setStatus("Session expired after API change. Please login again, then save.");
   }
 
   if (!token) {
@@ -481,7 +708,9 @@ export default function Admin() {
               <h2 className="text-2xl font-extrabold">{title}</h2>
             </div>
             <div className="flex gap-2">
-              <button onClick={persistContent} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white"><Save size={17} /> {saving ? "Saving..." : "Save Backend"}</button>
+              {!hasSectionSave && (
+                <button onClick={persistContent} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white"><Save size={17} /> {saving ? "Saving..." : "Save Backend"}</button>
+              )}
               <Link to="/" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold"><Home size={17} /> Website</Link>
               <button onClick={logout} className="hidden items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white sm:inline-flex"><LogOut size={17} /> Logout</button>
             </div>
@@ -495,12 +724,13 @@ export default function Admin() {
         </header>
         <div className="p-4 lg:p-8">
           {active === "dashboard" && <Dashboard content={content} appointments={appointments} />}
-          {active === "profile" && <ProfileEditor content={content} setContent={setContent} token={token} />}
-          {active === "seo" && <SeoEditor content={content} setContent={setContent} />}
+          {active === "home" && <HomeEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
+          {active === "profile" && <ProfileEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
+          {active === "seo" && <SeoEditor content={content} setContent={setContent} token={token} onAuthError={handleAuthError} />}
           {active === "appointments" && <AppointmentManager appointments={appointments} setAppointments={setAppointments} token={token} />}
           {active === "media" && <ListEditor type="video" items={content.videos} token={token} onChange={(videos) => setContent((prev) => ({ ...prev, videos }))} />}
           {active === "blog" && <ListEditor type="blog" items={content.blogs} token={token} onChange={(blogs) => setContent((prev) => ({ ...prev, blogs }))} />}
-          {active === "gallery" && <Gallery token={token} />}
+          {active === "gallery" && <Gallery token={token} onAuthError={handleAuthError} />}
         </div>
       </section>
     </main>

@@ -1,8 +1,9 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
   Award,
+  Baby,
   BriefcaseBusiness,
   CalendarCheck,
   CheckCircle2,
@@ -11,20 +12,74 @@ import {
   HeartHandshake,
   HeartPulse,
   Facebook,
+  Leaf,
   Mail,
   MapPin,
   Menu,
+  Microscope,
   Phone,
   ShieldCheck,
   Sparkles,
   Star,
   X
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { clinicalSkills, education, professionalExperience, researchHighlights, specialistTraining } from "../data/profileDetails.js";
 import { createAppointment } from "../lib/api.js";
+
+const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
+
+function SpecialistSlider({ items = [] }) {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % items.length);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [items.length]);
+
+  const Icon = SPECIALIST_ICONS[current % SPECIALIST_ICONS.length];
+  const label = items[current] || "";
+
+  if (!items.length) return null;
+
+  return (
+    <div className="absolute bottom-24 left-[2%] z-20 w-[220px] rounded-[24px] border border-white/70 bg-white/90 p-5 shadow-soft backdrop-blur xl:left-[5%]">
+      <p className="text-xs font-extrabold uppercase tracking-wide text-clinic">Specialist Care</p>
+      <div className="mt-3 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.35 }}
+            className="flex items-start gap-2.5"
+          >
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#fbf0f4] text-clinic">
+              <Icon size={14} />
+            </span>
+            <p className="text-sm font-semibold leading-5 text-slate-700">{label}</p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <div className="mt-4 flex gap-1.5">
+        {items.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrent(i)}
+            className={`h-1.5 rounded-full transition-all duration-300 ${i === current ? "w-6 bg-clinic" : "w-1.5 bg-slate-300"}`}
+            aria-label={`Slide ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const leftNavItems = [
   { label: "Home", href: "/" },
@@ -105,6 +160,7 @@ export function Header() {
 
 function Hero() {
   const { content } = useContext(SiteContext);
+  const home = content.home || {};
 
   return (
     <section id="home" className="relative overflow-hidden bg-[#fbf0f4] pb-0 pt-0">
@@ -114,11 +170,11 @@ function Hero() {
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }} className="pb-4">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#DDB3C9]/60 bg-white px-4 py-2 text-sm font-bold text-[#7b6074] shadow-sm">
               <HeartPulse size={17} />
-              FCPS Obs & Gyn | FCPS Reproductive Endocrinology & Infertility
+              {home.heroBadge || "FCPS Obs & Gyn | FCPS Reproductive Endocrinology & Infertility"}
             </div>
             <h1 className="max-w-3xl text-[36px] font-extrabold leading-[1.08] tracking-normal text-ink sm:text-[48px] lg:text-[56px] xl:text-[62px]">
-              Fertility, pregnancy & women&apos;s health care by{" "}
-              <span className="text-clinic">Dr. Kazi Khadeza Farhin</span>
+              {home.heroHeading || "Fertility, pregnancy & women's health care by"}{" "}
+              <span className="text-clinic">{content.profile.name}</span>
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 lg:text-lg">{content.profile.intro}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -156,15 +212,10 @@ function Hero() {
                   <Star key={index} size={18} fill="currentColor" />
                 ))}
               </div>
-              <p className="text-3xl font-extrabold text-ink">19+ Years</p>
-              <p className="text-sm font-bold text-slate-500">Clinical Experience</p>
+              <p className="text-3xl font-extrabold text-ink">{home.experienceYears || "19+"} Years</p>
+              <p className="text-sm font-bold text-slate-500">{home.experienceLabel || "Clinical Experience"}</p>
             </div>
-            <div className="absolute bottom-24 left-[2%] z-20 max-w-[250px] rounded-[24px] border border-white/70 bg-white/90 p-5 shadow-soft backdrop-blur xl:left-[5%]">
-              <p className="text-sm font-extrabold text-clinic">Specialist Care</p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                Infertility, IVF/ART counseling, IUI, PCOS, endometriosis, laparoscopy and hysteroscopy.
-              </p>
-            </div>
+            <SpecialistSlider items={home.specialistItems || []} />
           </motion.div>
         </div>
       </div>
@@ -312,7 +363,7 @@ function CareMoments() {
 
 function JourneyHighlights() {
   const { content } = useContext(SiteContext);
-  const items = [
+  const items = content.home?.journeyItems || [
     "Fertility evaluation and counseling",
     "Pregnancy and delivery planning",
     "PCOS, endometriosis and menstrual care",
@@ -382,6 +433,7 @@ function Services() {
 
 function About() {
   const { content } = useContext(SiteContext);
+  const aboutItems = content.home?.aboutItems || ["Infertility & ART care", "Obs & Gyn procedures", "Laparoscopy & hysteroscopy", "PCOS and endometriosis care"];
   return (
     <section id="about" className="bg-pearl section-pad">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.9fr_1.1fr]">
@@ -391,7 +443,7 @@ function About() {
           <h2 className="mt-2 text-4xl font-extrabold text-ink">{content.profile.title}</h2>
           <p className="mt-5 text-lg leading-8 text-slate-600">{content.profile.intro}</p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {["Infertility & ART care", "Obs & Gyn procedures", "Laparoscopy & hysteroscopy", "PCOS and endometriosis care"].map((item) => (
+            {aboutItems.map((item) => (
               <p key={item} className="flex items-center gap-3 rounded-2xl bg-white p-4 font-semibold text-slate-700">
                 <ShieldCheck size={20} className="text-clinic" /> {item}
               </p>
