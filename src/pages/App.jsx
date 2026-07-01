@@ -345,6 +345,7 @@ function ReelCard({ reel }) {
   const parsed = parseVideoUrl(reel.videoUrl);
   const poster = reel.thumbnail || parsed?.thumbnail;
   const canPreview = playing && parsed?.previewEmbedUrl;
+  const staticPreview = !poster && !canPreview && parsed?.staticEmbedUrl;
 
   return (
     <div
@@ -363,12 +364,19 @@ function ReelCard({ reel }) {
         />
       ) : (
         <>
-          {poster ? (
-            <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />
+          {poster && <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />}
+          {staticPreview && (
+            <iframe
+              src={parsed.staticEmbedUrl}
+              title={reel.title || "Reel"}
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              allow="encrypted-media"
+              frameBorder="0"
+              tabIndex={-1}
+            />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+          {!poster && !staticPreview && <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 grid place-items-center">
             <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft transition group-hover:scale-110">
               <Play size={22} fill="currentColor" />

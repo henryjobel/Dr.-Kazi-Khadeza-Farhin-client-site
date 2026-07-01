@@ -15,9 +15,11 @@ export function parseVideoUrl(url) {
   }
 
   if (/facebook\.com|fb\.watch/.test(trimmed)) {
+    const encoded = encodeURIComponent(trimmed);
     return {
       platform: "facebook",
-      previewEmbedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(trimmed)}&autoplay=true&mute=true&show_text=false`,
+      previewEmbedUrl: `https://www.facebook.com/plugins/video.php?href=${encoded}&autoplay=true&mute=true&show_text=false`,
+      staticEmbedUrl: `https://www.facebook.com/plugins/video.php?href=${encoded}&autoplay=false&mute=true&show_text=false`,
       thumbnail: null
     };
   }
