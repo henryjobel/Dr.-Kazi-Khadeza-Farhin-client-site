@@ -844,10 +844,13 @@ export default function Admin() {
     setDraftContent((current) => {
       const next = typeof update === "function" ? update(current) : update;
       draftContentRef.current = next;
-      setContent(next);
       return next;
     });
   }
+
+  useEffect(() => {
+    setContent(draftContent);
+  }, [draftContent, setContent]);
 
   async function persistContent() {
     setSaving(true);

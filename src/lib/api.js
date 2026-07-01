@@ -1,14 +1,15 @@
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://backend-doctor-khadizafarhin-mam.vercel.app").replace(/\/$/, "");
 
 export async function apiRequest(path, options = {}) {
-  const isFormData = options.body instanceof FormData;
+  const { headers: callerHeaders, ...restOptions } = options;
+  const isFormData = restOptions.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
+    ...restOptions,
     headers: {
       ...(!isFormData ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers || {})
-    },
-    ...options
+      ...(callerHeaders || {})
+    }
   });
 
   if (!response.ok) {
