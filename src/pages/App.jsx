@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { createAppointment } from "../lib/api.js";
+import { getEarliestBookableDate, isSameDayBookingClosed } from "../lib/booking.js";
 
 const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
 
@@ -226,12 +227,13 @@ function AppointmentForm() {
   const { content, setAppointments } = useContext(SiteContext);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [minDate, setMinDate] = useState(getEarliestBookableDate());
   const [form, setForm] = useState({
     name: "",
     phone: "",
     chamber: chambers[0].shortName,
     service: content.services[0] || "",
-    date: "",
+    date: getEarliestBookableDate(),
     message: ""
   });
 
@@ -243,6 +245,18 @@ function AppointmentForm() {
 
   async function submit(e) {
     e.preventDefault();
+    const earliest = getEarliestBookableDate();
+    setMinDate(earliest);
+    if (form.date < earliest) {
+      setNotice(
+        isSameDayBookingClosed()
+          ? "Same-day booking closes at 5:00 PM. Please choose tomorrow's date or later."
+          : "Please choose a valid appointment date."
+      );
+      setForm((current) => ({ ...current, date: earliest }));
+      return;
+    }
+
     const payload = { ...form, status: "Pending" };
     setSaving(true);
     setNotice("");
@@ -251,10 +265,9 @@ function AppointmentForm() {
       const saved = await createAppointment(payload);
       setAppointments((items) => [saved || payload, ...items]);
       setNotice("Appointment request sent successfully.");
-      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: "", message: "" });
-    } catch {
-      setAppointments((items) => [payload, ...items]);
-      setNotice("Request saved in local preview. Please check the live backend connection.");
+      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: getEarliestBookableDate(), message: "" });
+    } catch (error) {
+      setNotice(error.message || "Request failed. Please check the live backend connection.");
     } finally {
       setSaving(false);
     }
@@ -309,7 +322,10 @@ function AppointmentForm() {
             <select className="admin-input h-16" value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })}>
               {content.services.map((service) => <option key={service}>{service}</option>)}
             </select>
-            <input className="admin-input h-16" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+            <div>
+              <input className="admin-input h-16 w-full" type="date" min={minDate} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+              <p className="mt-2 text-xs font-semibold text-slate-500">Same-day booking closes at 5:00 PM. After that, the earliest date is tomorrow.</p>
+            </div>
             <textarea className="admin-input min-h-28 md:col-span-2" placeholder="Short note, concern, or preferred time" value={form.message || ""} onChange={(e) => setForm({ ...form, message: e.target.value })} />
           </div>
           <button disabled={saving} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-clinic px-6 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.26)] disabled:cursor-not-allowed disabled:opacity-70">
