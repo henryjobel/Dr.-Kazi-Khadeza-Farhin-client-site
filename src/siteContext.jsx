@@ -1,13 +1,42 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { defaultContent } from "./data/defaultContent.js";
 import { getContent } from "./lib/api.js";
 import { applySeo } from "./lib/seo.js";
 
 export const SiteContext = React.createContext(null);
 
+const emptyContent = {
+  seo: {},
+  profile: {
+    name: "",
+    title: "",
+    intro: "",
+    phone: "",
+    email: "",
+    chamber: "",
+    heroImage: "",
+    portraitImage: ""
+  },
+  stats: [],
+  services: [],
+  videos: [],
+  blogs: [],
+  moments: [],
+  home: {
+    heroBadge: "",
+    heroHeading: "",
+    experienceYears: "",
+    experienceLabel: "",
+    specialistItems: [],
+    aboutItems: [],
+    journeyItems: [],
+    customSections: []
+  }
+};
+
 export function SiteProvider({ children }) {
-  const [content, setContent] = useState(defaultContent);
-  const [appointments, setAppointments] = useState(defaultContent.appointments);
+  const [content, setContent] = useState(emptyContent);
+  const [appointments, setAppointments] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -19,7 +48,10 @@ export function SiteProvider({ children }) {
         }
       })
       .catch(() => {
-        // Keep the bundled prototype content available if the live API is not ready.
+        // Content stays empty; the site renders its structural layout without data.
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
       });
 
     return () => {
@@ -37,8 +69,8 @@ export function SiteProvider({ children }) {
   }, [content]);
 
   const value = useMemo(
-    () => ({ content, setContent, appointments, setAppointments }),
-    [content, appointments]
+    () => ({ content, setContent, appointments, setAppointments, loaded }),
+    [content, appointments, loaded]
   );
 
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;

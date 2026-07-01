@@ -231,10 +231,16 @@ function AppointmentForm() {
     name: "",
     phone: "",
     chamber: chambers[0].shortName,
-    service: content.services[0],
+    service: content.services[0] || "",
     date: "",
     message: ""
   });
+
+  useEffect(() => {
+    if (!form.service && content.services[0]) {
+      setForm((current) => ({ ...current, service: content.services[0] }));
+    }
+  }, [content.services]);
 
   async function submit(e) {
     e.preventDefault();
@@ -246,7 +252,7 @@ function AppointmentForm() {
       const saved = await createAppointment(payload);
       setAppointments((items) => [saved || payload, ...items]);
       setNotice("Appointment request sent successfully.");
-      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0], date: "", message: "" });
+      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: "", message: "" });
     } catch {
       setAppointments((items) => [payload, ...items]);
       setNotice("Request saved in local preview. Please check the live backend connection.");
@@ -320,6 +326,8 @@ function AppointmentForm() {
 function CareMoments() {
   const { content } = useContext(SiteContext);
   const featured = content.moments.slice(0, 5);
+
+  if (!featured.length) return null;
 
   return (
     <section className="bg-[#fbf0f4] py-20">

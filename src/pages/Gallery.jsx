@@ -9,6 +9,17 @@ export default function GalleryPage() {
   const { content } = useContext(SiteContext);
   const featured = content.moments[0];
 
+  if (!featured) {
+    return (
+      <main className="min-h-screen bg-[#fff8fb] text-ink">
+        <Header />
+        <section className="px-4 pb-16 pt-40 text-center">
+          <p className="text-lg font-bold text-slate-500">Gallery is loading...</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#fff8fb] text-ink">
       <Header />
