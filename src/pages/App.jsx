@@ -107,7 +107,7 @@ export function Header() {
 
   return (
     <header className="fixed left-0 right-0 top-7 z-50 px-4">
-      <nav className="glass-nav mx-auto flex h-[70px] max-w-[1320px] items-center justify-between rounded-full px-2.5 text-[12px] text-white shadow-soft">
+      <nav className="mx-auto flex h-[70px] max-w-[1320px] items-center justify-between rounded-full border border-white/20 bg-[#5B2B6D] px-2.5 text-[12px] text-white shadow-soft">
         <div className="hidden flex-1 items-center gap-2 md:flex">
           {leftNavItems.map((item) => (
             <a
@@ -125,7 +125,7 @@ export function Header() {
           <span className="grid h-9 w-9 place-items-center rounded-full bg-clinic text-white">
             <Sparkles size={17} fill="currentColor" />
           </span>
-          DRFARHIN
+          DR. KAZI KHADEZA FARHIN
         </a>
         <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
           {rightNavItems.map((item) => (
@@ -139,6 +139,9 @@ export function Header() {
               {item.label}
             </a>
           ))}
+          <a href="#appointment" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3.5 font-semibold text-[#5B2B6D] shadow-sm transition hover:-translate-y-0.5 hover:bg-white/95">
+            Book Appointment
+          </a>
         </div>
         <button className="grid h-11 w-11 place-items-center rounded-full bg-white/10 md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
           {open ? <X size={18} /> : <Menu size={18} />}
@@ -151,7 +154,10 @@ export function Header() {
               {item.label}
             </a>
           ))}
-          <Link to="/admin" className="block rounded-2xl bg-ink px-4 py-3 font-semibold text-white">
+          <a href="#appointment" onClick={() => setOpen(false)} className="mt-1 block rounded-2xl bg-[#5B2B6D] px-4 py-3 font-semibold text-white">
+            Book Appointment
+          </a>
+          <Link to="/admin" className="mt-1 block rounded-2xl bg-ink px-4 py-3 font-semibold text-white">
             Admin Dashboard
           </Link>
         </div>
@@ -180,10 +186,10 @@ function Hero() {
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 lg:text-lg">{content.profile.intro}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#appointment" className="inline-flex items-center justify-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.32)] transition hover:-translate-y-0.5">
+              <a href="#appointment" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#5B2B6D] px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(91,43,109,0.32)] transition hover:-translate-y-0.5">
                 Book Appointment <ArrowUpRight size={18} />
               </a>
-              <a href="#services" className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 font-extrabold text-ink transition hover:bg-slate-50">
+              <a href="#services" className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 font-extrabold text-[#5B2B6D] transition hover:bg-slate-50">
                 View Services
               </a>
             </div>
@@ -233,6 +239,7 @@ function AppointmentForm() {
   const [form, setForm] = useState({
     name: "",
     phone: "",
+    age: "",
     chamber: chambers[0].shortName,
     service: content.services[0] || "",
     date: getEarliestBookableDate(),
@@ -267,7 +274,7 @@ function AppointmentForm() {
       const saved = await createAppointment(payload);
       setAppointments((items) => [saved || payload, ...items]);
       setNotice("Appointment request sent successfully.");
-      setForm({ name: "", phone: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: getEarliestBookableDate(), message: "" });
+      setForm({ name: "", phone: "", age: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: getEarliestBookableDate(), message: "" });
     } catch (error) {
       setNotice(error.message || "Request failed. Please check the live backend connection.");
     } finally {
@@ -311,13 +318,14 @@ function AppointmentForm() {
         </div>
         <form onSubmit={submit} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-soft md:p-8">
           <div className="mb-6 flex flex-wrap gap-2">
-            {["Fertility", "Pregnancy", "Gynecology"].map((item) => (
+            {["Fertility", "Obstetrics & Gynecology", "Reproductive Endocrinology & Infertility"].map((item) => (
               <span key={item} className="rounded-full bg-mint px-4 py-2 text-sm font-extrabold text-[#7b6074]">{item}</span>
             ))}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <input className="admin-input h-16" placeholder="Patient name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <input className="admin-input h-16" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+            <input className="admin-input h-16" type="number" min="0" placeholder="Age" value={form.age || ""} onChange={(e) => setForm({ ...form, age: e.target.value })} required />
             <select className="admin-input h-16 md:col-span-2" value={form.chamber} onChange={(e) => setForm({ ...form, chamber: e.target.value })}>
               {chambers.map((chamber) => <option key={chamber.shortName}>{chamber.shortName}</option>)}
             </select>
@@ -344,17 +352,11 @@ function ReelCard({ reel }) {
   const [playing, setPlaying] = useState(false);
   const parsed = parseVideoUrl(reel.videoUrl);
   const poster = reel.thumbnail || parsed?.thumbnail;
-  const canPreview = playing && parsed?.previewEmbedUrl;
-  const staticPreview = !poster && !canPreview && parsed?.staticEmbedUrl;
+  const canPlay = playing && parsed?.previewEmbedUrl;
 
   return (
-    <div
-      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-[24px] bg-ink shadow-soft"
-      onMouseEnter={() => setPlaying(true)}
-      onMouseLeave={() => setPlaying(false)}
-      onClick={() => setPlaying((current) => !current)}
-    >
-      {canPreview ? (
+    <div className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-[24px] bg-ink shadow-soft" onClick={() => setPlaying(true)}>
+      {canPlay ? (
         <iframe
           src={parsed.previewEmbedUrl}
           title={reel.title || "Reel"}
@@ -364,18 +366,11 @@ function ReelCard({ reel }) {
         />
       ) : (
         <>
-          {poster && <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />}
-          {staticPreview && (
-            <iframe
-              src={parsed.staticEmbedUrl}
-              title={reel.title || "Reel"}
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              allow="encrypted-media"
-              frameBorder="0"
-              tabIndex={-1}
-            />
+          {poster ? (
+            <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />
           )}
-          {!poster && !staticPreview && <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 grid place-items-center">
             <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft transition group-hover:scale-110">
@@ -384,7 +379,7 @@ function ReelCard({ reel }) {
           </div>
         </>
       )}
-      {!canPreview && reel.title && (
+      {!canPlay && reel.title && (
         <p className="absolute inset-x-0 bottom-0 p-4 text-sm font-extrabold leading-5 text-white drop-shadow">{reel.title}</p>
       )}
     </div>
@@ -422,12 +417,81 @@ function ReelsSection() {
   );
 }
 
+function PatientExpressionsSection() {
+  const { content } = useContext(SiteContext);
+  const home = content.home || {};
+  const expressions = (content.home?.patientExpressions || []).filter((item) => item.name || item.quote || item.videoUrl);
+
+  if (!expressions.length) return null;
+
+  return (
+    <section className="bg-[#fff8fb] py-20">
+      <div className="mx-auto max-w-[1440px] px-4 lg:px-14 xl:px-20">
+        <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="font-bold uppercase tracking-wide text-clinic">{home.expressionsEyebrow || "Patients' Expressions"}</p>
+            <h2 className="mt-2 max-w-3xl text-4xl font-extrabold leading-tight text-ink md:text-5xl">
+              {home.expressionsTitle || "Stories from patients who trusted her care"}
+            </h2>
+          </div>
+          <p className="max-w-md leading-7 text-slate-600">
+            {home.expressionsSubtitle || "Short video expressions and heartfelt words from patients who felt supported, informed and cared for throughout their journey."}
+          </p>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {expressions.map((item, index) => {
+            const parsed = parseVideoUrl(item.videoUrl);
+            const [playing, setPlaying] = useState(false);
+            const poster = parsed?.thumbnail;
+
+            return (
+              <article key={`${item.name}-${index}`} className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-soft">
+                <div className="aspect-video bg-slate-100" onClick={() => setPlaying(true)}>
+                  {playing && parsed?.previewEmbedUrl ? (
+                    <iframe className="h-full w-full" src={parsed.previewEmbedUrl} title={item.name || "Patient expression"} loading="lazy" allowFullScreen />
+                  ) : (
+                    <div className="relative h-full w-full cursor-pointer">
+                      {poster ? <img src={poster} alt={item.name || "Patient expression"} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center bg-[#fbf0f4] p-6 text-center text-sm font-semibold text-slate-600">Video preview</div>}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                      <div className="absolute inset-0 grid place-items-center">
+                        <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft">
+                          <Play size={22} fill="currentColor" />
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <p className="text-lg font-extrabold text-ink">{item.name || "Patient story"}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">“{item.quote || "A heartfelt patient expression will appear here."}”</p>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CareMoments() {
   const { content } = useContext(SiteContext);
   const home = content.home || {};
   const featured = content.moments.slice(0, 5);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (featured.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % featured.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [featured.length]);
 
   if (!featured.length) return null;
+
+  const mainItem = featured[activeIndex];
+  const otherItems = featured.filter((_, index) => index !== activeIndex);
 
   return (
     <section className="bg-[#fbf0f4] py-20">
@@ -446,15 +510,15 @@ function CareMoments() {
 
         <div className="grid auto-rows-[230px] gap-4 md:grid-cols-4 md:auto-rows-[260px]">
           <article className="group relative overflow-hidden rounded-[30px] bg-white shadow-soft md:col-span-2 md:row-span-2">
-            <img src={featured[0].image} alt={featured[0].title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+            <img src={mainItem.image} alt={mainItem.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-6 text-white">
               <p className="text-sm font-bold uppercase tracking-wide text-blush">Mother & newborn care</p>
-              <h3 className="mt-2 text-2xl font-extrabold">{featured[0].title}</h3>
-              <p className="mt-2 max-w-md text-sm leading-6 text-white/80">{featured[0].caption}</p>
+              <h3 className="mt-2 text-2xl font-extrabold">{mainItem.title}</h3>
+              <p className="mt-2 max-w-md text-sm leading-6 text-white/80">{mainItem.caption}</p>
             </div>
           </article>
 
-          {featured.slice(1).map((item) => (
+          {otherItems.map((item) => (
             <article key={item.image} className="group relative overflow-hidden rounded-[28px] bg-white shadow-sm">
               <img src={item.image} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-white">
@@ -787,7 +851,7 @@ function Contact() {
           <p className="mt-3 max-w-xl text-white/65">{content.profile.title}</p>
         </div>
         <div className="space-y-3 text-sm text-white/75">
-          <p className="flex items-center gap-3"><Phone size={18} className="text-clinic" /> {content.profile.phone}</p>
+          <p className="flex items-center gap-3"><Phone size={18} className="text-clinic" /> +8801850545737</p>
           <p className="flex items-center gap-3"><Mail size={18} className="text-clinic" /> {content.profile.email}</p>
           <p className="flex items-center gap-3"><Facebook size={18} className="text-clinic" /> Facebook / Dr. Farhin</p>
         </div>
@@ -804,6 +868,7 @@ export default function App() {
       <CustomHomeSections />
       <AppointmentForm />
       <ReelsSection />
+      <PatientExpressionsSection />
       <CareMoments />
       <Services />
       <JourneyHighlights />

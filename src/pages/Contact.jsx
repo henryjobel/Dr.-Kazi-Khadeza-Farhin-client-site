@@ -31,15 +31,15 @@ export default function ContactPage() {
               Select Uttara Crescent Clinic or Nova IVF Fertility Banani, then call the appointment number for final confirmation.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <a href={`tel:${content.profile.phone}`} className="rounded-[24px] bg-white p-5 shadow-sm">
+              <a href="tel:+8801850545737" className="rounded-[24px] bg-white p-5 shadow-sm">
                 <Phone className="text-clinic" />
                 <p className="mt-4 text-sm font-bold uppercase tracking-wide text-slate-500">Phone</p>
-                <p className="mt-1 text-xl font-extrabold">{content.profile.phone}</p>
+                <p className="mt-1 text-xl font-extrabold">+8801850545737</p>
               </a>
-              <a href={`mailto:${content.profile.email}`} className="rounded-[24px] bg-white p-5 shadow-sm">
+              <a href="mailto:drkfarhin@gmail.com" className="rounded-[24px] bg-white p-5 shadow-sm">
                 <Mail className="text-clinic" />
                 <p className="mt-4 text-sm font-bold uppercase tracking-wide text-slate-500">Email</p>
-                <p className="mt-1 text-xl font-extrabold">{content.profile.email}</p>
+                <p className="mt-1 text-xl font-extrabold">drkfarhin@gmail.com</p>
               </a>
             </div>
           </div>

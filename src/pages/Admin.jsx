@@ -23,6 +23,7 @@ import { parseVideoUrl } from "../lib/video.js";
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "home", label: "Home Page", icon: Home },
+  { id: "expressions", label: "Patients' Expressions", icon: Video },
   { id: "profile", label: "Profile", icon: Settings },
   { id: "portfolio", label: "Portfolio", icon: Award },
   { id: "seo", label: "SEO", icon: FileText },
@@ -163,6 +164,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
   const [specialistItems, setSpecialistItems] = useState((content.home?.specialistItems || []).join("\n"));
   const [aboutItems, setAboutItems] = useState((content.home?.aboutItems || []).join("\n"));
   const [journeyItems, setJourneyItems] = useState((content.home?.journeyItems || []).join("\n"));
+  const [patientExpressions, setPatientExpressions] = useState(content.home?.patientExpressions || []);
   const [customSections, setCustomSections] = useState(content.home?.customSections || []);
   const [uploadingSection, setUploadingSection] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -176,6 +178,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
     setSpecialistItems((content.home?.specialistItems || []).join("\n"));
     setAboutItems((content.home?.aboutItems || []).join("\n"));
     setJourneyItems((content.home?.journeyItems || []).join("\n"));
+    setPatientExpressions(content.home?.patientExpressions || []);
     setCustomSections(content.home?.customSections || []);
   }, [content._id, content.updatedAt, dirty]);
 
@@ -188,6 +191,7 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
         specialistItems: specialistItems.split("\n").map((s) => s.trim()).filter(Boolean),
         aboutItems: aboutItems.split("\n").map((s) => s.trim()).filter(Boolean),
         journeyItems: journeyItems.split("\n").map((s) => s.trim()).filter(Boolean),
+        patientExpressions: patientExpressions.filter((item) => item.name || item.quote || item.videoUrl),
         customSections: customSections.map((section) => ({
           ...section,
           items: section.items || [],
@@ -323,6 +327,40 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="mb-1 text-xl font-extrabold">Patients' Expressions</h3>
+            <p className="text-sm text-slate-500">Add patient testimonial cards with YouTube links that will appear on the homepage.</p>
+          </div>
+          <button onClick={() => { setDirty(true); setPatientExpressions((items) => [...items, { name: "", quote: "", videoUrl: "" }]); }} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Expression
+          </button>
+        </div>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag"><input className="admin-input" value={home.expressionsEyebrow || ""} onChange={(e) => { setDirty(true); setHome({ ...home, expressionsEyebrow: e.target.value }); }} /></Field>
+          <Field label="Title"><input className="admin-input" value={home.expressionsTitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, expressionsTitle: e.target.value }); }} /></Field>
+          <Field label="Subtitle"><textarea className="admin-input min-h-24" value={home.expressionsSubtitle || ""} onChange={(e) => { setDirty(true); setHome({ ...home, expressionsSubtitle: e.target.value }); }} /></Field>
+        </div>
+        <div className="mt-5 space-y-4">
+          {patientExpressions.map((item, index) => (
+            <div key={index} className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-extrabold text-clinic">Expression {index + 1}</p>
+                <button onClick={() => { setDirty(true); setPatientExpressions((items) => items.filter((_, itemIndex) => itemIndex !== index)); }} className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600">
+                  <Trash2 size={15} /> Remove
+                </button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Patient name"><input className="admin-input" value={item.name || ""} onChange={(e) => { setDirty(true); setPatientExpressions((items) => items.map((expression, expressionIndex) => expressionIndex === index ? { ...expression, name: e.target.value } : expression)); }} /></Field>
+                <Field label="YouTube link"><input className="admin-input" placeholder="https://www.youtube.com/watch?v=..." value={item.videoUrl || ""} onChange={(e) => { setDirty(true); setPatientExpressions((items) => items.map((expression, expressionIndex) => expressionIndex === index ? { ...expression, videoUrl: e.target.value } : expression)); }} /></Field>
+                <Field label="Short quote"><textarea className="admin-input min-h-24 md:col-span-2" value={item.quote || ""} onChange={(e) => { setDirty(true); setPatientExpressions((items) => items.map((expression, expressionIndex) => expressionIndex === index ? { ...expression, quote: e.target.value } : expression)); }} /></Field>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-1 text-xl font-extrabold">Care Moments section</h3>
         <p className="mb-5 text-sm text-slate-500">Heading text above the gallery preview on the homepage. Images are managed in the Images tab.</p>
         <div className="grid gap-4">
@@ -453,6 +491,112 @@ function HomeEditor({ content, setContent, token, onAuthError }) {
       <div className="flex flex-wrap items-center gap-4">
         <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">
           <Save size={18} /> {saving ? "Saving..." : "Save Home Content"}
+        </button>
+        {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
+      </div>
+    </div>
+  );
+}
+
+function ExpressionsEditor({ content, setContent, token, onAuthError }) {
+  const [draft, setDraft] = useState(content.home || {});
+  const [items, setItems] = useState((content.home?.patientExpressions || []).map((item) => ({ ...item })));
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    setDraft(content.home || {});
+    setItems((content.home?.patientExpressions || []).map((item) => ({ ...item })));
+  }, [content._id, content.updatedAt]);
+
+  async function save() {
+    const nextHome = {
+      ...(content.home || {}),
+      expressionsEyebrow: draft.expressionsEyebrow || "",
+      expressionsTitle: draft.expressionsTitle || "",
+      expressionsSubtitle: draft.expressionsSubtitle || "",
+      patientExpressions: items.filter((item) => item.name || item.quote || item.videoUrl)
+    };
+
+    const newContent = { ...content, home: nextHome };
+    setContent(newContent);
+    setSaving(true);
+    setStatus("");
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setStatus("Saved successfully.");
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateItem(index, key, value) {
+    setItems((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-xl font-extrabold">Patients' Expressions</h3>
+        <p className="mb-5 text-sm text-slate-500">Manage patient testimonial cards with YouTube video links for the homepage.</p>
+        <div className="grid gap-4">
+          <Field label="Eyebrow tag">
+            <input className="admin-input" value={draft.expressionsEyebrow || ""} onChange={(e) => setDraft({ ...draft, expressionsEyebrow: e.target.value })} />
+          </Field>
+          <Field label="Title">
+            <input className="admin-input" value={draft.expressionsTitle || ""} onChange={(e) => setDraft({ ...draft, expressionsTitle: e.target.value })} />
+          </Field>
+          <Field label="Subtitle">
+            <textarea className="admin-input min-h-24" value={draft.expressionsSubtitle || ""} onChange={(e) => setDraft({ ...draft, expressionsSubtitle: e.target.value })} />
+          </Field>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-extrabold">Expression cards</h3>
+            <p className="text-sm text-slate-500">Add patient stories with quotes and YouTube links.</p>
+          </div>
+          <button onClick={() => setItems((current) => [...current, { name: "", quote: "", videoUrl: "" }])} className="inline-flex items-center gap-2 rounded-2xl bg-clinic px-4 py-3 text-sm font-bold text-white">
+            <Plus size={16} /> Add Card
+          </button>
+        </div>
+        <div className="space-y-4">
+          {items.map((item, index) => (
+            <div key={index} className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-extrabold text-clinic">Card {index + 1}</p>
+                <button onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm font-bold text-red-600">
+                  <Trash2 size={15} /> Remove
+                </button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Patient name">
+                  <input className="admin-input" value={item.name || ""} onChange={(e) => updateItem(index, "name", e.target.value)} />
+                </Field>
+                <Field label="YouTube link">
+                  <input className="admin-input" placeholder="https://www.youtube.com/watch?v=..." value={item.videoUrl || ""} onChange={(e) => updateItem(index, "videoUrl", e.target.value)} />
+                </Field>
+                <Field label="Short quote">
+                  <textarea className="admin-input min-h-24 md:col-span-2" value={item.quote || ""} onChange={(e) => updateItem(index, "quote", e.target.value)} />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">
+          <Save size={18} /> {saving ? "Saving..." : "Save Expressions"}
         </button>
         {status && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{status}</p>}
       </div>
@@ -1052,6 +1196,7 @@ function Gallery({ token, onAuthError, content, setContent }) {
 export default function Admin() {
   const { content, setContent, appointments, setAppointments } = useContext(SiteContext);
   const [active, setActive] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [token, setToken] = useState(() => localStorage.getItem("doctorAdminToken") || "");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -1060,7 +1205,7 @@ export default function Admin() {
   const [contentLoading, setContentLoading] = useState(true);
   const draftContentRef = useRef(content);
   const title = useMemo(() => tabs.find((tab) => tab.id === active)?.label, [active]);
-  const hasSectionSave = ["home", "profile", "portfolio", "seo", "gallery"].includes(active);
+  const hasSectionSave = ["home", "expressions", "profile", "portfolio", "seo", "gallery"].includes(active);
 
   useEffect(() => {
     if (!token) {
@@ -1166,19 +1311,24 @@ export default function Admin() {
 
   return (
     <main className="min-h-screen bg-pearl">
-      <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-72 border-r border-slate-200 bg-white p-5 lg:block">
+      <aside className={`fixed bottom-0 left-0 top-0 z-40 w-72 border-r border-slate-200 bg-white p-5 shadow-sm transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         <div className="mb-8 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-clinic">Doctor CMS</p>
             <h1 className="text-xl font-extrabold">Admin Panel</h1>
           </div>
-          <Link to="/" className="grid h-10 w-10 place-items-center rounded-full bg-pearl"><Home size={18} /></Link>
+          <div className="flex items-center gap-2">
+            <Link to="/" className="grid h-10 w-10 place-items-center rounded-full bg-pearl"><Home size={18} /></Link>
+            <button onClick={() => setSidebarOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-pearl lg:hidden" aria-label="Hide sidebar">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+          </div>
         </div>
         <div className="space-y-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => setActive(tab.id)} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold transition ${active === tab.id ? "bg-ink text-white" : "text-slate-600 hover:bg-pearl"}`}>
+              <button key={tab.id} onClick={() => { setActive(tab.id); setSidebarOpen(false); }} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left font-bold transition ${active === tab.id ? "bg-ink text-white" : "text-slate-600 hover:bg-pearl"}`}>
                 <Icon size={18} /> {tab.label}
               </button>
             );
@@ -1188,9 +1338,14 @@ export default function Admin() {
       <section className="lg:pl-72">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur lg:px-8">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-clinic">Content management</p>
-              <h2 className="text-2xl font-extrabold">{title}</h2>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSidebarOpen((prev) => !prev)} className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 lg:hidden" aria-label="Toggle sidebar">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+              </button>
+              <div>
+                <p className="text-sm font-bold text-clinic">Content management</p>
+                <h2 className="text-2xl font-extrabold">{title}</h2>
+              </div>
             </div>
             <div className="flex gap-2">
               {!hasSectionSave && (
@@ -1210,6 +1365,7 @@ export default function Admin() {
         <div className="p-4 lg:p-8">
           {active === "dashboard" && <Dashboard content={adminContent} appointments={appointments} />}
           {active === "home" && <HomeEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
+          {active === "expressions" && <ExpressionsEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "profile" && <ProfileEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "portfolio" && <PortfolioEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}
           {active === "seo" && <SeoEditor content={adminContent} setContent={updateDraftContent} token={token} onAuthError={handleAuthError} />}

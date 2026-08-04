@@ -46,6 +46,10 @@ const emptyContent = {
     reelsEyebrow: "",
     reelsTitle: "",
     reelsSubtitle: "",
+    expressionsEyebrow: "",
+    expressionsTitle: "",
+    expressionsSubtitle: "",
+    patientExpressions: [],
     customSections: []
   },
   portfolio: {
