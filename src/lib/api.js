@@ -1,4 +1,4 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://backend-doctor-khadizafarhin-mam.vercel.app").replace(/\/$/, "");
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://backend.drkazikhadezafarhin.com").replace(/\/$/, "");
 
 export async function apiRequest(path, options = {}) {
   const { headers: callerHeaders, ...restOptions } = options;

@@ -114,7 +114,7 @@ export default function ContactPage() {
             </p>
             <h2 className="mt-2 text-3xl font-extrabold">Fertility, pregnancy and gynecology consultation</h2>
           </div>
-          <a href="/#appointment" className="inline-flex items-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white">
+          <a href="/appointment" className="inline-flex items-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white">
             Book Appointment <ArrowUpRight size={18} />
           </a>
         </div>

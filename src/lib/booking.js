@@ -1,5 +1,5 @@
 const DHAKA_UTC_OFFSET_MINUTES = 6 * 60;
-const SAME_DAY_CUTOFF_HOUR = 17;
+const SAME_DAY_CUTOFF_HOUR = 18;
 
 function getDhakaNow() {
   const now = new Date();
@@ -14,14 +14,41 @@ function toDateInputValue(date) {
   return `${year}-${month}-${day}`;
 }
 
-export function getEarliestBookableDate() {
+function parseDateInputValue(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  return new Date(year || new Date().getFullYear(), (month || 1) - 1, day || 1);
+}
+
+function getCutoffHour(chamber) {
+  return Number.isFinite(chamber?.cutoffHour) ? chamber.cutoffHour : SAME_DAY_CUTOFF_HOUR;
+}
+
+export function getEarliestBookableDate(chamber) {
   const dhakaNow = getDhakaNow();
-  if (dhakaNow.getHours() >= SAME_DAY_CUTOFF_HOUR) {
+  if (dhakaNow.getHours() >= getCutoffHour(chamber)) {
     dhakaNow.setDate(dhakaNow.getDate() + 1);
   }
   return toDateInputValue(dhakaNow);
 }
 
-export function isSameDayBookingClosed() {
-  return getDhakaNow().getHours() >= SAME_DAY_CUTOFF_HOUR;
+export function isDateAvailableForChamber(value, chamber) {
+  if (!value || !chamber?.availableDays?.length) return true;
+  const date = parseDateInputValue(value);
+  return chamber.availableDays.includes(date.getDay());
+}
+
+export function getNextAvailableDate(chamber, fromValue = getEarliestBookableDate(chamber)) {
+  const date = parseDateInputValue(fromValue);
+  for (let index = 0; index < 370; index += 1) {
+    const value = toDateInputValue(date);
+    if (value >= fromValue && isDateAvailableForChamber(value, chamber)) {
+      return value;
+    }
+    date.setDate(date.getDate() + 1);
+  }
+  return fromValue;
+}
+
+export function isSameDayBookingClosed(chamber) {
+  return getDhakaNow().getHours() >= getCutoffHour(chamber);
 }

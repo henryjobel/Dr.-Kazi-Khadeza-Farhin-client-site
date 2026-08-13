@@ -21,6 +21,8 @@ const emptyContent = {
   videos: [],
   blogs: [],
   moments: [],
+  careMomentImages: [],
+  trustImages: [],
   reels: [],
   home: {
     heroBadge: "",

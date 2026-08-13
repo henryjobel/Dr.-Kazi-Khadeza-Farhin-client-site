@@ -39,3 +39,8 @@ body {
   border-color: #b499ac;
   box-shadow: 0 0 0 4px rgba(180, 153, 172, 0.16);
 }
+
+.signature-script {
+  font-family: "Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive;
+  letter-spacing: 0;
+}

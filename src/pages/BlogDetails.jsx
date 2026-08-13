@@ -70,7 +70,7 @@ export default function BlogDetailsPage() {
               <Stethoscope className="text-clinic" />
               <h2 className="mt-4 text-2xl font-extrabold">{content.profile.name}</h2>
               <p className="mt-3 leading-7 text-white/70">{content.profile.title}</p>
-              <Link to="/contact" className="mt-6 inline-flex items-center rounded-full bg-clinic px-5 py-3 font-extrabold text-white">
+              <Link to="/appointment" className="mt-6 inline-flex items-center rounded-full bg-clinic px-5 py-3 font-extrabold text-white">
                 Book Appointment
               </Link>
             </div>

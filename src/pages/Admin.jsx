@@ -1,9 +1,11 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { jsPDF } from "jspdf";
 import {
   Award,
   CalendarDays,
   Clapperboard,
+  Download,
   FileText,
   Home,
   Image,
@@ -33,6 +35,65 @@ const tabs = [
   { id: "blog", label: "Blog", icon: FileText },
   { id: "gallery", label: "Images", icon: Image }
 ];
+
+const DHAKA_UTC_OFFSET_MINUTES = 6 * 60;
+
+function getDhakaTodayDateValue() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const dhakaNow = new Date(utcMs + DHAKA_UTC_OFFSET_MINUTES * 60000);
+  const year = dhakaNow.getFullYear();
+  const month = String(dhakaNow.getMonth() + 1).padStart(2, "0");
+  const day = String(dhakaNow.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function sortByDailySerial(items) {
+  return [...items].sort((a, b) => {
+    const chamberA = getAppointmentForLabel(a.chamber);
+    const chamberB = getAppointmentForLabel(b.chamber);
+    if (chamberA !== chamberB) return chamberA.localeCompare(chamberB);
+
+    const serialA = Number(a.serialNumber || Number.MAX_SAFE_INTEGER);
+    const serialB = Number(b.serialNumber || Number.MAX_SAFE_INTEGER);
+    if (serialA !== serialB) return serialA - serialB;
+
+    return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+  });
+}
+
+function getShortChamberName(chamber = "") {
+  if (/nova/i.test(chamber)) return "Nova IVF";
+  return "Uttara Crescent";
+}
+
+function getAppointmentForLabel(chamber = "") {
+  return `Appointment for ${getShortChamberName(chamber)}`;
+}
+
+function groupAppointmentsByChamber(items) {
+  return items.reduce((groups, item) => {
+    const label = getAppointmentForLabel(item.chamber);
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(item);
+    return groups;
+  }, {});
+}
+
+function formatDhakaBookingTime(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Dhaka"
+  }).format(date);
+}
 
 function Stat({ label, value }) {
   return (
@@ -94,11 +155,16 @@ function LoginScreen({ onLogin }) {
 
 function Dashboard({ content, appointments }) {
   const pending = appointments.filter((item) => item.status === "Pending").length;
+  const novaCount = appointments.filter((item) => /nova/i.test(item.chamber || "")).length;
+  const crescentCount = appointments.length - novaCount;
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Appointments" value={appointments.length} />
         <Stat label="Pending" value={pending} />
+        <Stat label="Appointment for Nova" value={novaCount} />
+        <Stat label="Appointment for Uttara Crescent" value={crescentCount} />
         <Stat label="Blog Posts" value={content.blogs.length} />
         <Stat label="Videos" value={content.videos.length} />
       </div>
@@ -108,13 +174,15 @@ function Dashboard({ content, appointments }) {
           <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-[#7b6074]">Live preview data</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[920px] text-left text-sm">
             <thead className="text-slate-500">
               <tr>
                 <th className="py-3">Patient</th>
+                <th>Serial</th>
                 <th>Service</th>
                 <th>Chamber</th>
                 <th>Date</th>
+                <th>Booked</th>
                 <th>Phone</th>
                 <th>Status</th>
               </tr>
@@ -123,9 +191,16 @@ function Dashboard({ content, appointments }) {
               {appointments.map((item, index) => (
                 <tr key={`${item.phone}-${index}`} className="font-medium text-slate-700">
                   <td className="py-4">{item.name}</td>
+                  <td>{item.serialNumber ? `#${item.serialNumber}` : "-"}</td>
                   <td>{item.service}</td>
-                  <td>{item.chamber || "Uttara Crescent Clinic & Hospital"}</td>
+                  <td>
+                    <span className="rounded-full bg-[#fff8fb] px-3 py-1 text-xs font-extrabold text-[#7b6074]">
+                      {getAppointmentForLabel(item.chamber)}
+                    </span>
+                    <p className="mt-1 text-xs font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+                  </td>
                   <td>{item.date}</td>
+                  <td>{formatDhakaBookingTime(item.createdAt)}</td>
                   <td>{item.phone}</td>
                   <td><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{item.status}</span></td>
                 </tr>
@@ -897,6 +972,86 @@ function SeoEditor({ content, setContent, token, onAuthError }) {
 }
 
 function AppointmentManager({ appointments, setAppointments, token }) {
+  const today = getDhakaTodayDateValue();
+  const todaysAppointments = sortByDailySerial(appointments.filter((item) => item.date === today));
+  const groupedAppointments = groupAppointmentsByChamber(sortByDailySerial(appointments));
+  const todayGroups = groupAppointmentsByChamber(todaysAppointments);
+
+  function downloadTodaysSerialPdf() {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 36;
+    const columns = [
+      { label: "Serial", x: margin, width: 40 },
+      { label: "Patient", x: 82, width: 105 },
+      { label: "Phone", x: 195, width: 82 },
+      { label: "Age", x: 285, width: 32 },
+      { label: "Booked", x: 324, width: 75 },
+      { label: "Service", x: 407, width: 115 },
+      { label: "Appointment For", x: 530, width: 105 },
+      { label: "Problem", x: 643, width: 115 },
+      { label: "Status", x: 766, width: 60 }
+    ];
+    let y = 94;
+
+    function addHeader() {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("Today Appointment Serial List", margin, 42);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Date: ${today} | Total: ${todaysAppointments.length}`, margin, 60);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, 76, pageWidth - margin, 76);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      columns.forEach((column) => doc.text(column.label, column.x, y));
+      y += 16;
+      doc.setFont("helvetica", "normal");
+    }
+
+    addHeader();
+
+    if (!todaysAppointments.length) {
+      doc.setFontSize(12);
+      doc.text("No appointments booked for today.", margin, y + 18);
+    } else {
+      doc.setFontSize(8.5);
+      todaysAppointments.forEach((item, index) => {
+        const row = [
+          item.serialNumber ? `#${item.serialNumber}` : `${index + 1}`,
+          item.name || "-",
+          item.phone || "-",
+          item.age || "-",
+          formatDhakaBookingTime(item.createdAt),
+          item.service || "-",
+          getAppointmentForLabel(item.chamber),
+          item.message || "-",
+          item.status || "-"
+        ];
+        const wrappedCells = row.map((value, cellIndex) => doc.splitTextToSize(String(value), columns[cellIndex].width));
+        const rowHeight = Math.max(...wrappedCells.map((cell) => cell.length)) * 10 + 8;
+
+        if (y + rowHeight > pageHeight - margin) {
+          doc.addPage();
+          y = 94;
+          addHeader();
+          doc.setFontSize(8.5);
+        }
+
+        doc.setDrawColor(241, 245, 249);
+        doc.line(margin, y - 10, pageWidth - margin, y - 10);
+        wrappedCells.forEach((cell, cellIndex) => {
+          doc.text(cell, columns[cellIndex].x, y);
+        });
+        y += rowHeight;
+      });
+    }
+
+    doc.save(`today-appointment-serials-${today}.pdf`);
+  }
+
   async function updateStatus(index, status) {
     const item = appointments[index];
     setAppointments((items) => items.map((row, itemIndex) => itemIndex === index ? { ...row, status } : row));
@@ -912,24 +1067,57 @@ function AppointmentManager({ appointments, setAppointments, token }) {
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-5 text-xl font-extrabold">Appointment requests</h3>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xl font-extrabold">Appointment requests</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Today: {todaysAppointments.length} serials
+            {Object.entries(todayGroups).map(([label, items]) => ` | ${label}: ${items.length}`).join("")}
+          </p>
+        </div>
+        <button onClick={downloadTodaysSerialPdf} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white">
+          <Download size={16} /> Today PDF
+        </button>
+      </div>
       <div className="space-y-3">
-        {appointments.map((item, index) => (
-          <div key={`${item.phone}-${index}`} className="grid gap-3 rounded-2xl border border-slate-100 p-4 md:grid-cols-[1fr_1fr_1fr_140px_160px] md:items-center">
-            <div>
-              <p className="font-extrabold">{item.name}</p>
-              <p className="text-sm text-slate-500">{item.phone}</p>
+        {Object.entries(groupedAppointments).map(([label, items]) => (
+          <section key={label} className="space-y-3 rounded-3xl border border-slate-100 p-3">
+            <div className="flex items-center justify-between rounded-2xl bg-[#fff8fb] px-4 py-3">
+              <h4 className="font-extrabold text-ink">{label}</h4>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#7b6074]">{items.length} requests</span>
             </div>
-            <p className="font-semibold text-slate-700">{item.service}</p>
-            <p className="text-sm font-bold text-slate-500">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
-            <p className="text-sm font-bold text-slate-500">{item.date}</p>
-            <select className="admin-input" value={item.status} onChange={(e) => updateStatus(index, e.target.value)}>
-              <option>Pending</option>
-              <option>Confirmed</option>
-              <option>Completed</option>
-              <option>Cancelled</option>
-            </select>
-          </div>
+            {items.map((item) => {
+              const index = appointments.findIndex((row) => row === item || row._id === item._id);
+
+              return (
+                <div key={item._id || `${item.phone}-${item.date}-${item.serialNumber}`} className="grid gap-3 rounded-2xl border border-slate-100 p-4 md:grid-cols-[88px_1fr_1fr_1fr_140px_160px] md:items-center">
+                  <div className="rounded-2xl bg-[#fff8fb] px-3 py-2 text-center">
+                    <p className="text-[11px] font-extrabold uppercase text-[#7b6074]">Serial</p>
+                    <p className="text-lg font-extrabold text-ink">{item.serialNumber ? `#${item.serialNumber}` : "-"}</p>
+                  </div>
+                  <div>
+                    <p className="font-extrabold">{item.name}</p>
+                    <p className="text-sm text-slate-500">{item.phone}{item.age ? ` | Age ${item.age}` : ""}</p>
+                  </div>
+                  <p className="font-semibold text-slate-700">{item.service}</p>
+                  <div>
+                    <p className="text-sm font-extrabold text-[#7b6074]">{getAppointmentForLabel(item.chamber)}</p>
+                    <p className="text-xs font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-500">{item.date}</p>
+                    <p className="text-xs font-semibold text-slate-400">Booked: {formatDhakaBookingTime(item.createdAt)}</p>
+                  </div>
+                  <select className="admin-input" value={item.status} onChange={(e) => updateStatus(index, e.target.value)}>
+                    <option>Pending</option>
+                    <option>Confirmed</option>
+                    <option>Completed</option>
+                    <option>Cancelled</option>
+                  </select>
+                </div>
+              );
+            })}
+          </section>
         ))}
       </div>
     </div>
@@ -1076,6 +1264,113 @@ function ReelsEditor({ items, onChange, token }) {
   );
 }
 
+function SectionImageUploader({ title, description, field, defaultTitle, defaultCaption, token, onAuthError, content, setContent }) {
+  const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
+  const items = content[field] || [];
+
+  async function handleUpload(file) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+
+    try {
+      const result = await uploadImage(file, token);
+      setDraft((current) => ({ ...current, image: result.url }));
+    } catch (error) {
+      setUploadError(error.message || "Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function saveSectionImages(nextItems, message) {
+    const newContent = { ...content, [field]: nextItems };
+    setContent(newContent);
+    setSaving(true);
+    setSaveStatus("");
+
+    try {
+      const saved = await saveContent(newContent, token);
+      setContent((prev) => ({ ...prev, ...saved }));
+      setSaveStatus(message);
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError?.();
+        return;
+      }
+      setSaveStatus(err.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addImage() {
+    if (!draft.image) return;
+    const newImage = {
+      title: draft.title || defaultTitle,
+      caption: draft.caption || defaultCaption,
+      image: draft.image
+    };
+
+    setDraft({ title: "", caption: "", image: "" });
+    await saveSectionImages([newImage, ...items], `${title} saved.`);
+  }
+
+  async function deleteImage(index) {
+    await saveSectionImages(items.filter((_, itemIndex) => itemIndex !== index), `${title} saved.`);
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-5">
+      <div className="mb-4">
+        <h4 className="text-lg font-extrabold">{title}</h4>
+        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-3">
+          <input className="admin-input" placeholder="Image title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          <textarea className="admin-input min-h-24" placeholder="Short caption" value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
+          <input className="admin-input" placeholder="Cloudinary image URL" value={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.value })} />
+          <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-clinic bg-white px-5 py-4 text-sm font-extrabold text-[#7b6074]">
+            {uploading ? "Uploading to Cloudinary..." : "Choose Section Image"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleUpload(e.target.files?.[0])} />
+          </label>
+          {uploadError && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{uploadError}</p>}
+          {draft.image && <img src={draft.image} alt="Uploaded preview" className="h-56 w-full rounded-2xl object-cover" />}
+          <button onClick={addImage} disabled={saving || !draft.image} className="rounded-2xl bg-ink px-5 py-3 font-bold text-white disabled:opacity-70">
+            {saving ? "Saving..." : "Add Image"}
+          </button>
+          {saveStatus && <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[#7b6074]">{saveStatus}</p>}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {items.map((item, index) => (
+            <div key={`${field}-${item.image}-${index}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+              <img className="h-44 w-full object-cover" src={item.image} alt={item.title || title} />
+              <div className="p-4">
+                <p className="font-bold">{item.title || defaultTitle}</p>
+                <p className="mt-1 text-sm leading-5 text-slate-500">{item.caption || defaultCaption}</p>
+                <button
+                  onClick={() => deleteImage(index)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-red-100 px-3 py-1.5 text-xs font-bold text-red-500"
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
+          {!items.length && <p className="rounded-2xl bg-white px-4 py-4 text-sm font-bold text-[#7b6074]">No images yet. Upload one to show this section slider.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Gallery({ token, onAuthError, content, setContent }) {
   const [draft, setDraft] = useState({ title: "", caption: "", image: "" });
   const [uploading, setUploading] = useState(false);
@@ -1149,6 +1444,30 @@ function Gallery({ token, onAuthError, content, setContent }) {
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-xl font-extrabold">Image CMS</h3>
       <p className="mt-2 text-slate-500">Images upload to Cloudinary and return a live hosted URL for website use.</p>
+      <div className="mt-6 grid gap-5">
+        <SectionImageUploader
+          title="Care Moments slider images"
+          description="These images show in the Care Moments section under Real warmth from pregnancy, delivery and family care journeys."
+          field="careMomentImages"
+          defaultTitle="Care moment"
+          defaultCaption="A warm patient care moment from the clinic."
+          token={token}
+          onAuthError={onAuthError}
+          content={content}
+          setContent={setContent}
+        />
+        <SectionImageUploader
+          title="Why Patients Trust Her slider images"
+          description="These images show on the left side of the Why Patients Trust Her section."
+          field="trustImages"
+          defaultTitle="Patient trust moment"
+          defaultCaption="Steady guidance through fertility, pregnancy and women's health care."
+          token={token}
+          onAuthError={onAuthError}
+          content={content}
+          setContent={setContent}
+        />
+      </div>
       <div className="mt-6 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-5">
           <h4 className="text-lg font-extrabold">Upload new gallery moment</h4>
@@ -1173,7 +1492,7 @@ function Gallery({ token, onAuthError, content, setContent }) {
       </div>
       <h4 className="mt-8 text-lg font-extrabold">Care moments gallery</h4>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {content.moments.map((item, index) => (
+        {(content.moments || []).map((item, index) => (
           <div key={item.image} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <img className="h-48 w-full object-cover" src={item.image} alt={item.title} />
             <div className="p-4">

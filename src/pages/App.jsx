@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+﻿import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -7,6 +7,8 @@ import {
   BriefcaseBusiness,
   CalendarCheck,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   GraduationCap,
   HeartHandshake,
@@ -28,10 +30,135 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { createAppointment } from "../lib/api.js";
-import { getEarliestBookableDate, isSameDayBookingClosed } from "../lib/booking.js";
+import {
+  getEarliestBookableDate,
+  getNextAvailableDate,
+  isDateAvailableForChamber,
+  isSameDayBookingClosed
+} from "../lib/booking.js";
 import { parseVideoUrl } from "../lib/video.js";
 
 const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
+const APPOINTMENT_COPY = {
+  en: {
+    languageLabel: "Language",
+    appointmentBooking: "Appointment Booking",
+    chooseChamber: "Choose your chamber",
+    chamberIntro: "Mam currently sees patients at two locations. The chamber selection is inside the form.",
+    time: "Time",
+    callAppointment: "Call/appointment",
+    requestAppointment: "Request appointment",
+    patientDetails: "Patient details",
+    formIntro: "Choose a chamber, enter patient information, and submit the request.",
+    selectChamber: "Select chamber",
+    selectChamberHelp: "Tap one chamber for this appointment.",
+    patientInformation: "Patient information",
+    patientHelp: "Required fields are kept short for fast booking.",
+    patientName: "Patient name",
+    patientNamePlaceholder: "Enter patient name",
+    phoneNumber: "Phone number",
+    age: "Age",
+    agePlaceholder: "Patient age",
+    treatmentType: "Treatment type",
+    selectTreatment: "Select treatment",
+    appointmentDate: "Appointment date",
+    pick: "Pick",
+    availableSlot: "Available slot",
+    noteLabel: "Concern or preferred time",
+    notePlaceholder: "Short note, concern, or preferred time",
+    serialHelp: "A serial number will appear after successful request.",
+    sending: "Sending...",
+    submit: "Request Appointment",
+    successTitle: "Appointment request sent successfully.",
+    successSerial: "Your serial number is",
+    successHelp: "We will contact the patient number soon for confirmation.",
+    close: "Close",
+    selected: "Selected",
+    invalidDate: "Please choose an available appointment date for the selected chamber.",
+    sameDayClosed: "Same-day booking is closed for this chamber. Please choose the next available date.",
+    requestFailed: "Request failed. Please check the live backend connection.",
+    scheduleNote: "Calendar only shows available chamber days.",
+    dayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    dateLocale: "en-GB"
+  },
+  bn: {
+    languageLabel: "ভাষা",
+    appointmentBooking: "অ্যাপয়েন্টমেন্ট বুকিং",
+    chooseChamber: "চেম্বার নির্বাচন করুন",
+    chamberIntro: "ম্যাম বর্তমানে দুইটি লোকেশনে রোগী দেখেন। ফর্মের ভেতর থেকে চেম্বার নির্বাচন করুন।",
+    time: "সময়",
+    callAppointment: "কল/অ্যাপয়েন্টমেন্ট",
+    requestAppointment: "অ্যাপয়েন্টমেন্ট অনুরোধ",
+    patientDetails: "রোগীর তথ্য",
+    formIntro: "চেম্বার নির্বাচন করে রোগীর তথ্য দিন এবং অনুরোধ পাঠান।",
+    selectChamber: "চেম্বার নির্বাচন",
+    selectChamberHelp: "এই অ্যাপয়েন্টমেন্টের জন্য একটি চেম্বার নির্বাচন করুন।",
+    patientInformation: "রোগীর তথ্য",
+    patientHelp: "দ্রুত বুকিংয়ের জন্য প্রয়োজনীয় তথ্যগুলো সংক্ষিপ্ত রাখা হয়েছে।",
+    patientName: "রোগীর নাম",
+    patientNamePlaceholder: "রোগীর নাম লিখুন",
+    phoneNumber: "ফোন নম্বর",
+    age: "বয়স",
+    agePlaceholder: "রোগীর বয়স",
+    treatmentType: "চিকিৎসার ধরন",
+    selectTreatment: "চিকিৎসা নির্বাচন করুন",
+    appointmentDate: "অ্যাপয়েন্টমেন্টের তারিখ",
+    pick: "তারিখ",
+    availableSlot: "উপলভ্য সময়",
+    noteLabel: "সমস্যা বা পছন্দের সময়",
+    notePlaceholder: "সমস্যা, নোট বা পছন্দের সময় লিখুন",
+    serialHelp: "সফলভাবে অনুরোধ পাঠানোর পর সিরিয়াল নম্বর দেখাবে।",
+    sending: "পাঠানো হচ্ছে...",
+    submit: "অ্যাপয়েন্টমেন্ট অনুরোধ করুন",
+    successTitle: "অ্যাপয়েন্টমেন্ট অনুরোধ সফলভাবে পাঠানো হয়েছে।",
+    successSerial: "আপনার সিরিয়াল নম্বর",
+    successHelp: "কনফার্মেশনের জন্য রোগীর নম্বরে দ্রুত যোগাযোগ করা হবে।",
+    close: "বন্ধ করুন",
+    selected: "নির্বাচিত",
+    invalidDate: "নির্বাচিত চেম্বারের জন্য উপলভ্য তারিখ নির্বাচন করুন।",
+    sameDayClosed: "এই চেম্বারের আজকের বুকিং বন্ধ হয়েছে। পরবর্তী উপলভ্য তারিখ নির্বাচন করুন।",
+    requestFailed: "অনুরোধ পাঠানো যায়নি। লাইভ ব্যাকএন্ড সংযোগটি চেক করুন।",
+    scheduleNote: "ক্যালেন্ডারে শুধু চেম্বারের উপলভ্য দিনগুলো দেখানো হচ্ছে।",
+    dayLabels: ["রবি", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি"],
+    dateLocale: "bn-BD"
+  }
+};
+
+function parseDateValue(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  return new Date(year || new Date().getFullYear(), (month || 1) - 1, day || 1);
+}
+
+function toDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatReadableDate(value, locale = "en-GB") {
+  if (!value) return "Select date";
+  const date = parseDateValue(value);
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(date);
+}
+
+function getCalendarDays(monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startDate = new Date(firstDay);
+  startDate.setDate(firstDay.getDate() - firstDay.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    return date;
+  });
+}
 
 function SpecialistSlider({ items = [] }) {
   const [current, setCurrent] = useState(0);
@@ -96,6 +223,80 @@ const rightNavItems = [
 ];
 const mobileNavItems = [...leftNavItems, ...rightNavItems];
 
+function SitePreloader() {
+  const { content, loaded } = useContext(SiteContext);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const timer = setTimeout(() => setVisible(false), 800);
+    return () => clearTimeout(timer);
+  }, [loaded]);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          className="fixed inset-0 z-[120] grid place-items-center bg-[#fff8fb]"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.45 }}
+        >
+          <div className="relative mx-auto max-w-3xl px-5 text-center">
+            <motion.div
+              className="absolute -left-2 top-10 hidden h-16 w-16 place-items-center rounded-full bg-white text-[#5B2B6D] shadow-soft md:grid"
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Baby size={30} />
+            </motion.div>
+            <motion.div
+              className="absolute -right-2 top-20 hidden h-16 w-16 place-items-center rounded-full bg-white text-clinic shadow-soft md:grid"
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <HeartPulse size={30} />
+            </motion.div>
+            <motion.div
+              className="absolute -bottom-6 left-16 hidden h-14 w-14 place-items-center rounded-full bg-white text-[#7b6074] shadow-soft md:grid"
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Microscope size={25} />
+            </motion.div>
+            <motion.div
+              className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-[#5B2B6D] text-white shadow-soft"
+              animate={{ scale: [1, 1.08, 1], rotate: [0, 4, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Sparkles size={34} fill="currentColor" />
+            </motion.div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.32em] text-clinic">Fertility . Gynecology . Baby Care</p>
+            <h1 className="signature-script mt-4 text-[44px] font-normal leading-none tracking-normal text-[#5B2B6D] md:text-[76px]">
+              {content.profile?.name || "Dr. Kazi Khadeza Farhin"}
+            </h1>
+            <div className="mx-auto mt-5 flex max-w-xl flex-wrap items-center justify-center gap-2">
+              {["Infertility Care", "IVF & IUI", "PCOS", "Pregnancy Care"].map((item) => (
+                <span key={item} className="rounded-full bg-white/85 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-[#5B2B6D] shadow-sm">
+                  {item}
+                </span>
+              ))}
+            </div>
+            <div className="mx-auto mt-6 h-1.5 w-56 overflow-hidden rounded-full bg-white">
+              <motion.div
+                className="h-full rounded-full bg-[#5B2B6D]"
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{ duration: 1.05, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function Header() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
@@ -106,8 +307,10 @@ export function Header() {
   };
 
   return (
-    <header className="fixed left-0 right-0 top-7 z-50 px-4">
-      <nav className="mx-auto flex h-[70px] max-w-[1320px] items-center justify-between rounded-full border border-white/20 bg-[#5B2B6D] px-2.5 text-[12px] text-white shadow-soft">
+    <>
+      <SitePreloader />
+      <header className="fixed left-0 right-0 top-7 z-50 px-4">
+        <nav className="mx-auto flex h-[70px] max-w-[1320px] items-center justify-between rounded-full border border-white/20 bg-[#5B2B6D] px-2.5 text-[12px] text-white shadow-soft">
         <div className="hidden flex-1 items-center gap-2 md:flex">
           {leftNavItems.map((item) => (
             <a
@@ -139,30 +342,31 @@ export function Header() {
               {item.label}
             </a>
           ))}
-          <a href="#appointment" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3.5 font-semibold text-[#5B2B6D] shadow-sm transition hover:-translate-y-0.5 hover:bg-white/95">
+          <a href="/appointment" className="inline-flex items-center justify-center rounded-full bg-white px-5 py-3.5 font-semibold text-[#5B2B6D] shadow-sm transition hover:-translate-y-0.5 hover:bg-white/95">
             Book Appointment
           </a>
         </div>
         <button className="grid h-11 w-11 place-items-center rounded-full bg-white/10 md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
           {open ? <X size={18} /> : <Menu size={18} />}
         </button>
-      </nav>
-      {open && (
-        <div className="mx-auto mt-2 max-w-6xl rounded-3xl border border-slate-200 bg-white p-3 shadow-soft md:hidden">
+        </nav>
+        {open && (
+          <div className="mx-auto mt-2 max-w-6xl rounded-3xl border border-slate-200 bg-white p-3 shadow-soft md:hidden">
           {mobileNavItems.map((item) => (
             <a key={item.label} href={item.href} onClick={() => setOpen(false)} className="block rounded-2xl px-4 py-3 font-semibold text-slate-700">
               {item.label}
             </a>
           ))}
-          <a href="#appointment" onClick={() => setOpen(false)} className="mt-1 block rounded-2xl bg-[#5B2B6D] px-4 py-3 font-semibold text-white">
+          <a href="/appointment" onClick={() => setOpen(false)} className="mt-1 block rounded-2xl bg-[#5B2B6D] px-4 py-3 font-semibold text-white">
             Book Appointment
           </a>
           <Link to="/admin" className="mt-1 block rounded-2xl bg-ink px-4 py-3 font-semibold text-white">
             Admin Dashboard
           </Link>
-        </div>
-      )}
-    </header>
+          </div>
+        )}
+      </header>
+    </>
   );
 }
 
@@ -186,7 +390,7 @@ function Hero() {
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 lg:text-lg">{content.profile.intro}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#appointment" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#5B2B6D] px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(91,43,109,0.32)] transition hover:-translate-y-0.5">
+              <a href="/appointment" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#5B2B6D] px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(91,43,109,0.32)] transition hover:-translate-y-0.5">
                 Book Appointment <ArrowUpRight size={18} />
               </a>
               <a href="#services" className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-7 py-4 font-extrabold text-[#5B2B6D] transition hover:bg-slate-50">
@@ -231,38 +435,78 @@ function Hero() {
   );
 }
 
-function AppointmentForm() {
+export function AppointmentForm() {
   const { content, setAppointments } = useContext(SiteContext);
+  const defaultChamber = chambers[0];
+  const defaultDate = getNextAvailableDate(defaultChamber);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
-  const [minDate, setMinDate] = useState(getEarliestBookableDate());
+  const [successAppointment, setSuccessAppointment] = useState(null);
+  const [serviceOpen, setServiceOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [minDate, setMinDate] = useState(defaultDate);
+  const serviceOptions = useMemo(
+    () => [
+      ...new Set([
+        "Gynecological Treatment",
+        "Infertility Treatment",
+        ...(content.services || [])
+      ].filter(Boolean))
+    ],
+    [content.services]
+  );
   const [form, setForm] = useState({
     name: "",
     phone: "",
     age: "",
-    chamber: chambers[0].shortName,
-    service: content.services[0] || "",
-    date: getEarliestBookableDate(),
-    message: ""
+    chamber: defaultChamber.shortName,
+    service: serviceOptions[0] || "",
+    date: defaultDate,
+    message: "",
+    language: "bn"
   });
+  const selectedChamber = useMemo(
+    () => chambers.find((chamber) => chamber.shortName === form.chamber) || defaultChamber,
+    [defaultChamber, form.chamber]
+  );
+  const copy = APPOINTMENT_COPY[form.language] || APPOINTMENT_COPY.en;
+  const [calendarMonth, setCalendarMonth] = useState(() => parseDateValue(form.date));
+  const calendarDays = useMemo(() => getCalendarDays(calendarMonth), [calendarMonth]);
+  const monthLabel = useMemo(
+    () => new Intl.DateTimeFormat(copy.dateLocale, { month: "long", year: "numeric" }).format(calendarMonth),
+    [calendarMonth, copy.dateLocale]
+  );
 
   useEffect(() => {
-    if (!form.service && content.services[0]) {
-      setForm((current) => ({ ...current, service: content.services[0] }));
+    if (!form.service && serviceOptions[0]) {
+      setForm((current) => ({ ...current, service: serviceOptions[0] }));
     }
-  }, [content.services]);
+  }, [form.service, serviceOptions]);
+
+  useEffect(() => {
+    const earliest = getEarliestBookableDate(selectedChamber);
+    const nextAvailableDate = getNextAvailableDate(selectedChamber, earliest);
+    setMinDate(nextAvailableDate);
+
+    if (!form.date || form.date < nextAvailableDate || !isDateAvailableForChamber(form.date, selectedChamber)) {
+      setForm((current) => ({ ...current, date: nextAvailableDate }));
+      setCalendarMonth(parseDateValue(nextAvailableDate));
+    }
+  }, [form.date, selectedChamber]);
 
   async function submit(e) {
     e.preventDefault();
-    const earliest = getEarliestBookableDate();
-    setMinDate(earliest);
-    if (form.date < earliest) {
+    const earliest = getEarliestBookableDate(selectedChamber);
+    const nextAvailableDate = getNextAvailableDate(selectedChamber, earliest);
+    setMinDate(nextAvailableDate);
+    if (form.date < nextAvailableDate || !isDateAvailableForChamber(form.date, selectedChamber)) {
       setNotice(
-        isSameDayBookingClosed()
-          ? "Same-day booking closes at 5:00 PM. Please choose tomorrow's date or later."
-          : "Please choose a valid appointment date."
+        isSameDayBookingClosed(selectedChamber)
+          ? copy.sameDayClosed
+          : copy.invalidDate
       );
-      setForm((current) => ({ ...current, date: earliest }));
+      setForm((current) => ({ ...current, date: nextAvailableDate }));
+      setCalendarMonth(parseDateValue(nextAvailableDate));
       return;
     }
 
@@ -273,10 +517,19 @@ function AppointmentForm() {
     try {
       const saved = await createAppointment(payload);
       setAppointments((items) => [saved || payload, ...items]);
-      setNotice("Appointment request sent successfully.");
-      setForm({ name: "", phone: "", age: "", chamber: chambers[0].shortName, service: content.services[0] || "", date: getEarliestBookableDate(), message: "" });
+      setSuccessAppointment(saved || payload);
+      setForm({
+        name: "",
+        phone: "",
+        age: "",
+        chamber: defaultChamber.shortName,
+        service: serviceOptions[0] || "",
+        date: getNextAvailableDate(defaultChamber),
+        message: "",
+        language: form.language
+      });
     } catch (error) {
-      setNotice(error.message || "Request failed. Please check the live backend connection.");
+      setNotice(error.message || copy.requestFailed);
     } finally {
       setSaving(false);
     }
@@ -285,20 +538,23 @@ function AppointmentForm() {
   return (
     <section id="appointment" className="bg-[#f8fbfb] py-20">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 lg:grid-cols-[0.82fr_1.18fr]">
-        <div className="relative overflow-hidden rounded-[32px] bg-ink p-8 text-white shadow-soft">
+        <div className="relative order-2 overflow-hidden rounded-[32px] bg-ink p-8 text-white shadow-soft lg:order-1">
           <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-clinic/25" />
           <div className="relative">
             <CalendarCheck className="mb-5 text-clinic" size={38} />
-            <p className="text-sm font-bold uppercase tracking-wide text-clinic">Appointment Booking</p>
-            <h2 className="mt-2 text-4xl font-extrabold">Choose your chamber</h2>
+            <p className="text-sm font-bold uppercase tracking-wide text-clinic">{copy.appointmentBooking}</p>
+            <h2 className="mt-2 text-4xl font-extrabold">{copy.chooseChamber}</h2>
             <p className="mt-4 leading-7 text-white/70">
-              Mam currently sees patients at two locations. Choose the preferred chamber and call the listed appointment number for confirmation.
+              {copy.chamberIntro}
             </p>
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 grid gap-4">
               {chambers.map((chamber, index) => (
-                <div key={chamber.shortName} className="rounded-3xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur">
+                <div
+                  key={chamber.shortName}
+                  className="group rounded-3xl border border-white/10 bg-white/[0.07] p-5 text-left backdrop-blur transition hover:-translate-y-1 hover:border-clinic hover:bg-white/[0.14] hover:shadow-[0_20px_55px_rgba(0,0,0,0.18)]"
+                >
                   <div className="mb-3 flex items-center gap-3">
-                    <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-2xl bg-white p-1.5">
+                    <span className="grid h-20 w-20 place-items-center overflow-hidden rounded-2xl bg-white p-2 shadow-sm">
                       <img src={chamber.logo} alt={`${chamber.shortName} logo`} className="h-full w-full object-contain" />
                     </span>
                     <div>
@@ -308,81 +564,380 @@ function AppointmentForm() {
                   </div>
                   <div className="space-y-2 text-sm leading-6 text-white/75">
                     <p className="flex gap-2"><MapPin size={17} className="mt-1 shrink-0 text-clinic" /> {chamber.address}</p>
-                    <p className="flex gap-2"><Clock3 size={17} className="mt-1 shrink-0 text-clinic" /> সময়: {chamber.schedule}</p>
-                    <p className="flex gap-2"><Phone size={17} className="mt-1 shrink-0 text-clinic" /> কল/এপয়েনমেন্ট: {chamber.appointment}</p>
+                    <p className="flex gap-2"><Clock3 size={17} className="mt-1 shrink-0 text-clinic" /> {copy.time}: {form.language === "bn" ? chamber.scheduleBn : chamber.scheduleEn}, {form.language === "bn" ? chamber.timeBn : chamber.timeEn}</p>
+                    <p className="flex gap-2"><Phone size={17} className="mt-1 shrink-0 text-clinic" /> {copy.callAppointment}: {chamber.appointment}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-        <form onSubmit={submit} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-soft md:p-8">
-          <div className="mb-6 flex flex-wrap gap-2">
-            {["Fertility", "Obstetrics & Gynecology", "Reproductive Endocrinology & Infertility"].map((item) => (
-              <span key={item} className="rounded-full bg-mint px-4 py-2 text-sm font-extrabold text-[#7b6074]">{item}</span>
-            ))}
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <input className="admin-input h-16" placeholder="Patient name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <input className="admin-input h-16" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-            <input className="admin-input h-16" type="number" min="0" placeholder="Age" value={form.age || ""} onChange={(e) => setForm({ ...form, age: e.target.value })} required />
-            <select className="admin-input h-16 md:col-span-2" value={form.chamber} onChange={(e) => setForm({ ...form, chamber: e.target.value })}>
-              {chambers.map((chamber) => <option key={chamber.shortName}>{chamber.shortName}</option>)}
-            </select>
-            <select className="admin-input h-16" value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })}>
-              {content.services.map((service) => <option key={service}>{service}</option>)}
-            </select>
-            <div>
-              <input className="admin-input h-16 w-full" type="date" min={minDate} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
-              <p className="mt-2 text-xs font-semibold text-slate-500">Same-day booking closes at 5:00 PM. After that, the earliest date is tomorrow.</p>
+        <form onSubmit={submit} className="order-1 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-soft lg:order-2">
+          <div className="border-b border-slate-100 bg-gradient-to-br from-[#fff8fb] to-white p-5 md:p-7">
+            <p className="text-sm font-extrabold uppercase tracking-wide text-clinic">{copy.requestAppointment}</p>
+            <div className="mt-2 flex flex-col justify-between gap-3 md:flex-row md:items-end">
+              <div>
+                <h2 className="text-3xl font-extrabold leading-tight text-ink">{copy.patientDetails}</h2>
+                <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">{copy.formIntro}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-[#5B2B6D] shadow-sm">
+                  <Clock3 size={17} /> {form.language === "bn" ? selectedChamber.timeBn : selectedChamber.timeEn}
+                </div>
+                <div className="inline-flex rounded-2xl bg-white p-1 text-xs font-extrabold text-slate-500 shadow-sm" aria-label={copy.languageLabel}>
+                  {[
+                    ["bn", "বাংলা"],
+                    ["en", "English"]
+                  ].map(([language, label]) => (
+                    <button
+                      key={language}
+                      type="button"
+                      onClick={() => setForm((current) => ({ ...current, language }))}
+                      className={`rounded-xl px-3 py-2 transition ${form.language === language ? "bg-[#5B2B6D] text-white" : "hover:bg-[#fff8fb] hover:text-[#5B2B6D]"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <textarea className="admin-input min-h-28 md:col-span-2" placeholder="Short note, concern, or preferred time" value={form.message || ""} onChange={(e) => setForm({ ...form, message: e.target.value })} />
           </div>
-          <button disabled={saving} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-clinic px-6 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.26)] disabled:cursor-not-allowed disabled:opacity-70">
-            {saving ? "Sending..." : "Request Appointment"} <ArrowUpRight size={18} />
-          </button>
-          {notice && <p className="mt-3 rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{notice}</p>}
+
+          <div className="space-y-7 p-5 md:p-7">
+            <section>
+              <div className="mb-4 flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#5B2B6D] text-sm font-extrabold text-white">1</span>
+                <div>
+                  <p className="font-extrabold text-ink">{copy.selectChamber}</p>
+                  <p className="text-xs font-semibold text-slate-500">{copy.selectChamberHelp}</p>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {chambers.map((chamber, index) => (
+                  <button
+                    key={chamber.shortName}
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, chamber: chamber.shortName }))}
+                    className={`group grid min-h-[172px] grid-cols-[96px_1fr] items-center gap-4 rounded-2xl border p-4 text-left transition hover:-translate-y-1 hover:border-[#5B2B6D] hover:shadow-soft ${
+                      form.chamber === chamber.shortName ? "border-[#5B2B6D] bg-[#fff8fb] ring-4 ring-[#fbf0f4]" : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <span className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-100 bg-white p-2 shadow-sm transition group-hover:scale-[1.03]">
+                      <img src={chamber.logo} alt={`${chamber.shortName} logo`} className="h-full w-full object-contain" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-extrabold uppercase text-clinic">Chamber {index + 1}</span>
+                      <span className="mt-1 block text-base font-extrabold leading-6 text-ink">{chamber.name}</span>
+                      <span className="mt-1 block text-xs font-bold leading-5 text-slate-500">
+                        {form.language === "bn" ? chamber.scheduleBn : chamber.scheduleEn} · {form.language === "bn" ? chamber.timeBn : chamber.timeEn}
+                      </span>
+                      {form.chamber === chamber.shortName && (
+                        <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-[#5B2B6D] px-3 py-1 text-[11px] font-extrabold text-white">
+                          <CheckCircle2 size={13} /> {copy.selected}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-4 flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#5B2B6D] text-sm font-extrabold text-white">2</span>
+                <div>
+                  <p className="font-extrabold text-ink">{copy.patientInformation}</p>
+                  <p className="text-xs font-semibold text-slate-500">{copy.patientHelp}</p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.patientName}</span>
+                  <input className="admin-input h-14" placeholder={copy.patientNamePlaceholder} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.phoneNumber}</span>
+                  <input className="admin-input h-14" placeholder="01XXXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.age}</span>
+                  <input className="admin-input h-14" type="number" min="0" placeholder={copy.agePlaceholder} value={form.age || ""} onChange={(e) => setForm({ ...form, age: e.target.value })} required />
+                </label>
+                <div className="relative">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.treatmentType}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setServiceOpen((open) => !open);
+                      setCalendarOpen(false);
+                    }}
+                    className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left font-bold text-ink shadow-sm transition hover:border-[#5B2B6D] focus:border-[#5B2B6D] focus:outline-none focus:ring-4 focus:ring-[#fbf0f4]"
+                  >
+                    <span className="truncate">{form.service || copy.selectTreatment}</span>
+                    <ArrowUpRight size={17} className={`shrink-0 text-clinic transition ${serviceOpen ? "-rotate-45" : "rotate-45"}`} />
+                  </button>
+                  {serviceOpen && (
+                    <div className="absolute left-0 right-0 top-[76px] z-20 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-soft">
+                      {serviceOptions.map((service) => (
+                        <button
+                          key={service}
+                          type="button"
+                          onClick={() => {
+                            setForm((current) => ({ ...current, service }));
+                            setServiceOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-bold transition hover:bg-[#fff8fb] ${
+                            form.service === service ? "bg-[#fff8fb] text-[#5B2B6D]" : "text-slate-700"
+                          }`}
+                        >
+                          <span>{service}</span>
+                          {form.service === service && <CheckCircle2 size={16} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.appointmentDate}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCalendarOpen((open) => !open);
+                      setServiceOpen(false);
+                      setCalendarMonth(parseDateValue(form.date || minDate));
+                    }}
+                    className="flex h-14 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left font-bold text-ink shadow-sm transition hover:border-[#5B2B6D] focus:border-[#5B2B6D] focus:outline-none focus:ring-4 focus:ring-[#fbf0f4]"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <CalendarCheck className="shrink-0 text-clinic" size={19} />
+                      <span className="truncate">{formatReadableDate(form.date, copy.dateLocale)}</span>
+                    </span>
+                    <span className="rounded-full bg-[#fff8fb] px-3 py-1 text-xs font-extrabold text-[#5B2B6D]">{copy.pick}</span>
+                  </button>
+                  {calendarOpen && (
+                    <div className="absolute left-0 right-0 top-[76px] z-30 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft">
+                      <div className="mb-4 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                          className="grid h-9 w-9 place-items-center rounded-full bg-[#fff8fb] text-[#5B2B6D] transition hover:bg-[#fbf0f4]"
+                          aria-label="Previous month"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <p className="text-sm font-extrabold text-ink">{monthLabel}</p>
+                        <button
+                          type="button"
+                          onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                          className="grid h-9 w-9 place-items-center rounded-full bg-[#fff8fb] text-[#5B2B6D] transition hover:bg-[#fbf0f4]"
+                          aria-label="Next month"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                      <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[11px] font-extrabold uppercase text-slate-400">
+                        {copy.dayLabels.map((day) => <span key={day}>{day}</span>)}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {calendarDays.map((day) => {
+                          const value = toDateValue(day);
+                          const isSelected = value === form.date;
+                          const isDisabled = value < minDate || !isDateAvailableForChamber(value, selectedChamber);
+                          const isOutside = day.getMonth() !== calendarMonth.getMonth();
+
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={() => {
+                                setForm((current) => ({ ...current, date: value }));
+                                setCalendarOpen(false);
+                              }}
+                              className={`grid h-10 place-items-center rounded-xl text-sm font-extrabold transition ${
+                                isSelected
+                                  ? "bg-[#5B2B6D] text-white shadow-sm"
+                                  : isDisabled
+                                    ? "cursor-not-allowed bg-slate-50 text-slate-300"
+                                    : isOutside
+                                      ? "text-slate-300 hover:bg-[#fff8fb]"
+                                      : "text-slate-700 hover:bg-[#fff8fb] hover:text-[#5B2B6D]"
+                              }`}
+                            >
+                              {day.getDate()}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs font-semibold text-slate-500">{copy.scheduleNote}</p>
+                </div>
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm font-bold text-slate-600">{copy.noteLabel}</span>
+                  <textarea className="admin-input min-h-28" placeholder={copy.notePlaceholder} value={form.message || ""} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+                </label>
+              </div>
+            </section>
+
+            <div className="rounded-3xl border border-slate-100 bg-[#fff8fb] p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <CalendarCheck className="text-[#5B2B6D]" size={24} />
+                  <div>
+                    <p className="font-extrabold text-ink">{form.chamber}</p>
+                    <p className="text-xs font-semibold text-slate-500">
+                      {copy.availableSlot}: {form.language === "bn" ? selectedChamber.timeBn : selectedChamber.timeEn}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-500">{copy.serialHelp}</p>
+                  </div>
+                </div>
+                <button disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#5B2B6D] px-6 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(91,43,109,0.25)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70">
+                  {saving ? copy.sending : copy.submit} <ArrowUpRight size={18} />
+                </button>
+              </div>
+            </div>
+
+            {notice && <p className="rounded-2xl bg-[#fff8fb] px-4 py-3 text-sm font-bold text-[#7b6074]">{notice}</p>}
+          </div>
         </form>
       </div>
+      <AnimatePresence>
+        {successAppointment && (
+          <motion.div
+            className="fixed inset-0 z-[80] grid place-items-center bg-ink/45 px-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 12 }}
+              className="w-full max-w-md rounded-[28px] bg-white p-7 text-center shadow-soft"
+            >
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-mint text-[#5B2B6D]">
+                <CheckCircle2 size={34} />
+              </div>
+              <h3 className="mt-5 text-2xl font-extrabold text-ink">{copy.successTitle}</h3>
+              <p className="mt-3 text-lg font-bold text-[#7b6074]">
+                {copy.successSerial} {successAppointment.serialNumber || "pending"}.
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                {copy.successHelp}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSuccessAppointment(null)}
+                className="mt-6 w-full rounded-2xl bg-[#5B2B6D] px-5 py-3 font-extrabold text-white"
+              >
+                {copy.close}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
 
 function ReelCard({ reel }) {
   const [playing, setPlaying] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const parsed = parseVideoUrl(reel.videoUrl);
   const poster = reel.thumbnail || parsed?.thumbnail;
+  const previewFrame = !poster && parsed?.staticEmbedUrl;
   const canPlay = playing && parsed?.previewEmbedUrl;
 
+  useEffect(() => {
+    setIframeReady(false);
+  }, [playing, reel.videoUrl]);
+
+  function handleCardClick() {
+    if (parsed?.previewEmbedUrl) {
+      setPlaying(true);
+    }
+  }
+
   return (
-    <div className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-[24px] bg-ink shadow-soft" onClick={() => setPlaying(true)}>
-      {canPlay ? (
-        <iframe
-          src={parsed.previewEmbedUrl}
-          title={reel.title || "Reel"}
-          className="absolute inset-0 h-full w-full"
-          allow="autoplay; encrypted-media"
-          frameBorder="0"
-        />
-      ) : (
+    <>
+      <div className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-[24px] bg-[#fff8fb] shadow-soft" onClick={handleCardClick}>
         <>
           {poster ? (
             <img src={poster} alt={reel.title || "Reel"} className="absolute inset-0 h-full w-full object-cover" />
+          ) : previewFrame ? (
+            <iframe
+              src={previewFrame}
+              title={reel.title || "Reel preview"}
+              className="pointer-events-none absolute inset-0 h-full w-full bg-white"
+              allow="encrypted-media; picture-in-picture; web-share"
+              frameBorder="0"
+              scrolling="no"
+              tabIndex="-1"
+            />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-ink to-clinic/50" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,240,244,1),transparent_38%),linear-gradient(145deg,#5B2B6D,#B499AC)]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
           <div className="absolute inset-0 grid place-items-center">
-            <span className="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft transition group-hover:scale-110">
-              <Play size={22} fill="currentColor" />
-            </span>
+            <div className="text-center">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/90 text-clinic shadow-soft transition group-hover:scale-110">
+                <Play size={22} fill="currentColor" />
+              </span>
+              <span className="mt-3 inline-flex rounded-full bg-white/90 px-3 py-1 text-[11px] font-extrabold text-[#5B2B6D]">
+                Watch Here
+              </span>
+            </div>
           </div>
         </>
-      )}
-      {!canPlay && reel.title && (
-        <p className="absolute inset-x-0 bottom-0 p-4 text-sm font-extrabold leading-5 text-white drop-shadow">{reel.title}</p>
-      )}
-    </div>
+        {reel.title && (
+          <p className="absolute inset-x-0 bottom-0 p-4 text-sm font-extrabold leading-5 text-white drop-shadow">{reel.title}</p>
+        )}
+      </div>
+      <AnimatePresence>
+        {canPlay && (
+          <motion.div
+            className="fixed inset-0 z-[90] grid place-items-center bg-ink/70 px-4 py-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPlaying(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 12 }}
+              className="relative h-[min(82vh,720px)] w-full max-w-[430px] overflow-hidden rounded-[28px] bg-white shadow-soft"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setPlaying(false)}
+                className="absolute right-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-white text-[#5B2B6D] shadow-soft"
+                aria-label="Close video"
+              >
+                <X size={20} />
+              </button>
+              <iframe
+                src={parsed.previewEmbedUrl}
+                title={reel.title || "Short health tip"}
+                className="h-full w-full bg-white"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+                frameBorder="0"
+                scrolling="no"
+                onLoad={() => setIframeReady(true)}
+              />
+              {!iframeReady && (
+                <div className="absolute inset-0 grid place-items-center bg-[#fff8fb] p-4 text-center">
+                  <p className="text-sm font-extrabold text-[#5B2B6D]">Loading video...</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -404,7 +959,7 @@ function ReelsSection() {
             </h2>
           </div>
           <p className="max-w-md leading-7 text-slate-600">
-            {home.reelsSubtitle || "Bite-sized guidance on fertility, pregnancy and women's health. Hover or tap a card to watch."}
+            {home.reelsSubtitle || "Bite-sized guidance on fertility, pregnancy and women's health. Tap a card to watch."}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
@@ -477,14 +1032,15 @@ function PatientExpressionsSection() {
 function CareMoments() {
   const { content } = useContext(SiteContext);
   const home = content.home || {};
-  const featured = content.moments.slice(0, 5);
+  const careImages = content.careMomentImages?.length ? content.careMomentImages : content.moments || [];
+  const featured = careImages.slice(0, 5);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     if (featured.length <= 1) return;
     const timer = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % featured.length);
-    }, 5000);
+    }, 3000);
     return () => clearInterval(timer);
   }, [featured.length]);
 
@@ -510,7 +1066,18 @@ function CareMoments() {
 
         <div className="grid auto-rows-[230px] gap-4 md:grid-cols-4 md:auto-rows-[260px]">
           <article className="group relative overflow-hidden rounded-[30px] bg-white shadow-soft md:col-span-2 md:row-span-2">
-            <img src={mainItem.image} alt={mainItem.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={mainItem.image}
+                src={mainItem.image}
+                alt={mainItem.title}
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                initial={{ opacity: 0, scale: 1.04 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.55 }}
+              />
+            </AnimatePresence>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-6 text-white">
               <p className="text-sm font-bold uppercase tracking-wide text-blush">Mother & newborn care</p>
               <h3 className="mt-2 text-2xl font-extrabold">{mainItem.title}</h3>
@@ -536,6 +1103,9 @@ function CareMoments() {
 function JourneyHighlights() {
   const { content } = useContext(SiteContext);
   const home = content.home || {};
+  const trustImages = content.trustImages?.length ? content.trustImages : content.moments || [];
+  const sliderItems = trustImages.length ? trustImages : [{ title: content.profile.name, caption: content.profile.title, image: content.profile.portraitImage }];
+  const [activeIndex, setActiveIndex] = useState(0);
   const items = content.home?.journeyItems || [
     "Fertility evaluation and counseling",
     "Pregnancy and delivery planning",
@@ -543,18 +1113,52 @@ function JourneyHighlights() {
     "Post-treatment and family follow-up"
   ];
 
+  useEffect(() => {
+    if (sliderItems.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveIndex((current) => (current + 1) % sliderItems.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [sliderItems.length]);
+
+  const activeSlide = sliderItems[activeIndex % sliderItems.length];
+
   return (
     <section className="bg-white py-20">
       <div className="mx-auto grid max-w-[1440px] gap-8 px-4 lg:grid-cols-[0.95fr_1.05fr] lg:px-14 xl:px-20">
-        <div className="grid grid-cols-2 gap-4">
-          {content.moments.slice(5, 9).map((item, index) => (
-            <img
-              key={item.image}
-              src={item.image}
-              alt={item.title}
-              className={`h-72 w-full rounded-[28px] object-cover shadow-sm ${index % 2 ? "mt-8" : ""}`}
+        <div className="relative min-h-[520px] overflow-hidden rounded-[34px] bg-[#fff8fb] shadow-soft">
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={activeSlide.image}
+              src={activeSlide.image}
+              alt={activeSlide.title || "Patient care moment"}
+              className="absolute inset-0 h-full w-full object-cover"
+              initial={{ opacity: 0, scale: 1.04 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.55 }}
             />
-          ))}
+          </AnimatePresence>
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/10 to-transparent" />
+          <div className="absolute left-6 right-6 top-6 flex items-center justify-between">
+            <span className="rounded-full bg-white/90 px-4 py-2 text-xs font-extrabold uppercase text-[#5B2B6D] shadow-sm">Patient trust</span>
+            <span className="rounded-full bg-[#5B2B6D]/90 px-4 py-2 text-xs font-extrabold text-white shadow-sm">{String(activeIndex + 1).padStart(2, "0")} / {String(sliderItems.length).padStart(2, "0")}</span>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+            <p className="text-sm font-extrabold uppercase tracking-wide text-blush">{activeSlide.title || "Care moment"}</p>
+            <p className="mt-2 max-w-xl text-lg font-bold leading-7 text-white/90">{activeSlide.caption || "A trusted care moment from Dr. Farhin's practice."}</p>
+            <div className="mt-5 flex gap-2">
+              {sliderItems.slice(0, 8).map((item, index) => (
+                <button
+                  key={`${item.image}-${index}`}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  className={`h-2 rounded-full transition-all ${index === activeIndex ? "w-8 bg-white" : "w-2 bg-white/45 hover:bg-white/75"}`}
+                  aria-label={`Show trust image ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
         <div className="flex flex-col justify-center">
           <p className="font-bold uppercase tracking-wide text-clinic">{home.journeyEyebrow || "Why Patients Trust Her"}</p>
@@ -590,6 +1194,7 @@ function CustomHomeSections() {
         const items = section.items || [];
         const hasImage = Boolean(section.image);
         const isImageText = section.type === "imageText" || (section.type === "banner" && hasImage);
+        const ctaHref = section.ctaHref === "#appointment" || section.ctaHref === "/#appointment" ? "/appointment" : section.ctaHref;
 
         return (
           <section key={`${section.title}-${index}`} className={index % 2 ? "bg-white py-20" : "bg-[#fff8fb] py-20"}>
@@ -615,8 +1220,8 @@ function CustomHomeSections() {
                     ))}
                   </div>
                 )}
-                {section.ctaLabel && section.ctaHref && (
-                  <a href={section.ctaHref} className="mt-8 inline-flex items-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.24)]">
+                {section.ctaLabel && ctaHref && (
+                  <a href={ctaHref} className="mt-8 inline-flex items-center gap-2 rounded-full bg-clinic px-7 py-4 font-extrabold text-white shadow-[0_18px_45px_rgba(180,153,172,0.24)]">
                     {section.ctaLabel} <ArrowUpRight size={18} />
                   </a>
                 )}

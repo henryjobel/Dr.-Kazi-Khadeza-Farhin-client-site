@@ -69,7 +69,7 @@ export default function GalleryPage() {
               <p className="font-bold uppercase tracking-wide text-clinic">Moments</p>
               <h2 className="mt-2 text-4xl font-extrabold">Gallery collection</h2>
             </div>
-            <a href="/#appointment" className="inline-flex items-center gap-2 rounded-full bg-clinic px-6 py-3 font-extrabold text-white">
+            <a href="/appointment" className="inline-flex items-center gap-2 rounded-full bg-clinic px-6 py-3 font-extrabold text-white">
               Book Appointment <ArrowUpRight size={18} />
             </a>
           </div>
