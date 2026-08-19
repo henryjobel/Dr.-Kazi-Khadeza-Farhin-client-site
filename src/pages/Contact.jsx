@@ -97,8 +97,8 @@ export default function ContactPage() {
                 </div>
                 <div className="space-y-4 leading-7 text-slate-700">
                   <p className="flex gap-3"><MapPin className="mt-1 shrink-0 text-clinic" size={20} /> {chamber.address}</p>
-                  <p className="flex gap-3"><Clock3 className="mt-1 shrink-0 text-clinic" size={20} /> সময়: {chamber.schedule}</p>
-                  <p className="flex gap-3"><Phone className="mt-1 shrink-0 text-clinic" size={20} /> এপয়েনমেন্ট: {chamber.appointment}</p>
+                  <p className="flex gap-3"><Clock3 className="mt-1 shrink-0 text-clinic" size={20} /> Time: {chamber.schedule}</p>
+                  <p className="flex gap-3"><Phone className="mt-1 shrink-0 text-clinic" size={20} /> Appointment: {chamber.appointment}</p>
                 </div>
               </article>
             ))}

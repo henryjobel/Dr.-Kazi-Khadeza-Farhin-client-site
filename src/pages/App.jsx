@@ -1,5 +1,6 @@
 ﻿import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useRef } from "react";
 import {
   ArrowUpRight,
   Award,
@@ -14,6 +15,7 @@ import {
   HeartHandshake,
   HeartPulse,
   Facebook,
+  Instagram,
   Leaf,
   Mail,
   MapPin,
@@ -31,6 +33,12 @@ import { SiteContext } from "../siteContext.jsx";
 import { chambers } from "../data/chambers.js";
 import { createAppointment } from "../lib/api.js";
 import {
+  createAppointmentEventId,
+  trackAppointmentFormView,
+  trackChamberSelection,
+  trackAppointmentSuccess
+} from "../lib/facebookPixel.js";
+import {
   getEarliestBookableDate,
   getNextAvailableDate,
   isDateAvailableForChamber,
@@ -41,7 +49,6 @@ import { parseVideoUrl } from "../lib/video.js";
 const SPECIALIST_ICONS = [HeartPulse, Baby, Microscope, Leaf];
 const APPOINTMENT_COPY = {
   en: {
-    languageLabel: "Language",
     appointmentBooking: "Appointment Booking",
     chooseChamber: "Choose your chamber",
     chamberIntro: "Mam currently sees patients at two locations. The chamber selection is inside the form.",
@@ -64,8 +71,8 @@ const APPOINTMENT_COPY = {
     appointmentDate: "Appointment date",
     pick: "Pick",
     availableSlot: "Available slot",
-    noteLabel: "Concern or preferred time",
-    notePlaceholder: "Short note, concern, or preferred time",
+    noteLabel: "Patient's problem",
+    notePlaceholder: "Write the patient's problem",
     serialHelp: "A serial number will appear after successful request.",
     sending: "Sending...",
     submit: "Request Appointment",
@@ -80,47 +87,6 @@ const APPOINTMENT_COPY = {
     scheduleNote: "Calendar only shows available chamber days.",
     dayLabels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     dateLocale: "en-GB"
-  },
-  bn: {
-    languageLabel: "ভাষা",
-    appointmentBooking: "অ্যাপয়েন্টমেন্ট বুকিং",
-    chooseChamber: "চেম্বার নির্বাচন করুন",
-    chamberIntro: "ম্যাম বর্তমানে দুইটি লোকেশনে রোগী দেখেন। ফর্মের ভেতর থেকে চেম্বার নির্বাচন করুন।",
-    time: "সময়",
-    callAppointment: "কল/অ্যাপয়েন্টমেন্ট",
-    requestAppointment: "অ্যাপয়েন্টমেন্ট অনুরোধ",
-    patientDetails: "রোগীর তথ্য",
-    formIntro: "চেম্বার নির্বাচন করে রোগীর তথ্য দিন এবং অনুরোধ পাঠান।",
-    selectChamber: "চেম্বার নির্বাচন",
-    selectChamberHelp: "এই অ্যাপয়েন্টমেন্টের জন্য একটি চেম্বার নির্বাচন করুন।",
-    patientInformation: "রোগীর তথ্য",
-    patientHelp: "দ্রুত বুকিংয়ের জন্য প্রয়োজনীয় তথ্যগুলো সংক্ষিপ্ত রাখা হয়েছে।",
-    patientName: "রোগীর নাম",
-    patientNamePlaceholder: "রোগীর নাম লিখুন",
-    phoneNumber: "ফোন নম্বর",
-    age: "বয়স",
-    agePlaceholder: "রোগীর বয়স",
-    treatmentType: "চিকিৎসার ধরন",
-    selectTreatment: "চিকিৎসা নির্বাচন করুন",
-    appointmentDate: "অ্যাপয়েন্টমেন্টের তারিখ",
-    pick: "তারিখ",
-    availableSlot: "উপলভ্য সময়",
-    noteLabel: "সমস্যা বা পছন্দের সময়",
-    notePlaceholder: "সমস্যা, নোট বা পছন্দের সময় লিখুন",
-    serialHelp: "সফলভাবে অনুরোধ পাঠানোর পর সিরিয়াল নম্বর দেখাবে।",
-    sending: "পাঠানো হচ্ছে...",
-    submit: "অ্যাপয়েন্টমেন্ট অনুরোধ করুন",
-    successTitle: "অ্যাপয়েন্টমেন্ট অনুরোধ সফলভাবে পাঠানো হয়েছে।",
-    successSerial: "আপনার সিরিয়াল নম্বর",
-    successHelp: "কনফার্মেশনের জন্য রোগীর নম্বরে দ্রুত যোগাযোগ করা হবে।",
-    close: "বন্ধ করুন",
-    selected: "নির্বাচিত",
-    invalidDate: "নির্বাচিত চেম্বারের জন্য উপলভ্য তারিখ নির্বাচন করুন।",
-    sameDayClosed: "এই চেম্বারের আজকের বুকিং বন্ধ হয়েছে। পরবর্তী উপলভ্য তারিখ নির্বাচন করুন।",
-    requestFailed: "অনুরোধ পাঠানো যায়নি। লাইভ ব্যাকএন্ড সংযোগটি চেক করুন।",
-    scheduleNote: "ক্যালেন্ডারে শুধু চেম্বারের উপলভ্য দিনগুলো দেখানো হচ্ছে।",
-    dayLabels: ["রবি", "সোম", "মঙ্গল", "বুধ", "বৃহ", "শুক্র", "শনি"],
-    dateLocale: "bn-BD"
   }
 };
 
@@ -437,8 +403,10 @@ function Hero() {
 
 export function AppointmentForm() {
   const { content, setAppointments } = useContext(SiteContext);
+  const location = useLocation();
   const defaultChamber = chambers[0];
   const defaultDate = getNextAvailableDate(defaultChamber);
+  const submitInFlightRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [successAppointment, setSuccessAppointment] = useState(null);
@@ -463,19 +431,23 @@ export function AppointmentForm() {
     service: serviceOptions[0] || "",
     date: defaultDate,
     message: "",
-    language: "bn"
+    language: "en"
   });
   const selectedChamber = useMemo(
     () => chambers.find((chamber) => chamber.shortName === form.chamber) || defaultChamber,
     [defaultChamber, form.chamber]
   );
-  const copy = APPOINTMENT_COPY[form.language] || APPOINTMENT_COPY.en;
+  const copy = APPOINTMENT_COPY.en;
   const [calendarMonth, setCalendarMonth] = useState(() => parseDateValue(form.date));
   const calendarDays = useMemo(() => getCalendarDays(calendarMonth), [calendarMonth]);
   const monthLabel = useMemo(
     () => new Intl.DateTimeFormat(copy.dateLocale, { month: "long", year: "numeric" }).format(calendarMonth),
     [calendarMonth, copy.dateLocale]
   );
+
+  useEffect(() => {
+    trackAppointmentFormView();
+  }, []);
 
   useEffect(() => {
     if (!form.service && serviceOptions[0]) {
@@ -496,6 +468,8 @@ export function AppointmentForm() {
 
   async function submit(e) {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
+
     const earliest = getEarliestBookableDate(selectedChamber);
     const nextAvailableDate = getNextAvailableDate(selectedChamber, earliest);
     setMinDate(nextAvailableDate);
@@ -513,9 +487,19 @@ export function AppointmentForm() {
     const payload = { ...form, status: "Pending" };
     setSaving(true);
     setNotice("");
+    submitInFlightRef.current = true;
 
     try {
       const saved = await createAppointment(payload);
+      trackAppointmentSuccess({
+        eventId: createAppointmentEventId(),
+        formLocation: location.pathname,
+        chamberName: selectedChamber.shortName,
+        chamberId: selectedChamber.shortName,
+        serviceName: payload.service,
+        bookingDate: payload.date,
+        language: payload.language
+      });
       setAppointments((items) => [saved || payload, ...items]);
       setSuccessAppointment(saved || payload);
       setForm({
@@ -526,12 +510,13 @@ export function AppointmentForm() {
         service: serviceOptions[0] || "",
         date: getNextAvailableDate(defaultChamber),
         message: "",
-        language: form.language
+        language: "en"
       });
     } catch (error) {
       setNotice(error.message || copy.requestFailed);
     } finally {
       setSaving(false);
+      submitInFlightRef.current = false;
     }
   }
 
@@ -564,7 +549,7 @@ export function AppointmentForm() {
                   </div>
                   <div className="space-y-2 text-sm leading-6 text-white/75">
                     <p className="flex gap-2"><MapPin size={17} className="mt-1 shrink-0 text-clinic" /> {chamber.address}</p>
-                    <p className="flex gap-2"><Clock3 size={17} className="mt-1 shrink-0 text-clinic" /> {copy.time}: {form.language === "bn" ? chamber.scheduleBn : chamber.scheduleEn}, {form.language === "bn" ? chamber.timeBn : chamber.timeEn}</p>
+                    <p className="flex gap-2"><Clock3 size={17} className="mt-1 shrink-0 text-clinic" /> {copy.time}: {chamber.scheduleEn}, {chamber.timeEn}</p>
                     <p className="flex gap-2"><Phone size={17} className="mt-1 shrink-0 text-clinic" /> {copy.callAppointment}: {chamber.appointment}</p>
                   </div>
                 </div>
@@ -581,23 +566,16 @@ export function AppointmentForm() {
                 <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-500">{copy.formIntro}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-[#5B2B6D] shadow-sm">
-                  <Clock3 size={17} /> {form.language === "bn" ? selectedChamber.timeBn : selectedChamber.timeEn}
-                </div>
-                <div className="inline-flex rounded-2xl bg-white p-1 text-xs font-extrabold text-slate-500 shadow-sm" aria-label={copy.languageLabel}>
-                  {[
-                    ["bn", "বাংলা"],
-                    ["en", "English"]
-                  ].map(([language, label]) => (
-                    <button
-                      key={language}
-                      type="button"
-                      onClick={() => setForm((current) => ({ ...current, language }))}
-                      className={`rounded-xl px-3 py-2 transition ${form.language === language ? "bg-[#5B2B6D] text-white" : "hover:bg-[#fff8fb] hover:text-[#5B2B6D]"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-[#5B2B6D] shadow-sm">
+                  <Clock3 size={18} className="shrink-0" />
+                  <span className="leading-tight">
+                    <span className="block text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
+                      {selectedChamber.scheduleEn}
+                    </span>
+                    <span className="block text-sm font-extrabold">
+                      {selectedChamber.timeEn}
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -617,7 +595,10 @@ export function AppointmentForm() {
                   <button
                     key={chamber.shortName}
                     type="button"
-                    onClick={() => setForm((current) => ({ ...current, chamber: chamber.shortName }))}
+                    onClick={() => {
+                      setForm((current) => ({ ...current, chamber: chamber.shortName }));
+                      trackChamberSelection(chamber.shortName, `chamber_${index + 1}`);
+                    }}
                     className={`group grid min-h-[172px] grid-cols-[96px_1fr] items-center gap-4 rounded-2xl border p-4 text-left transition hover:-translate-y-1 hover:border-[#5B2B6D] hover:shadow-soft ${
                       form.chamber === chamber.shortName ? "border-[#5B2B6D] bg-[#fff8fb] ring-4 ring-[#fbf0f4]" : "border-slate-200 bg-white"
                     }`}
@@ -629,7 +610,7 @@ export function AppointmentForm() {
                       <span className="block text-xs font-extrabold uppercase text-clinic">Chamber {index + 1}</span>
                       <span className="mt-1 block text-base font-extrabold leading-6 text-ink">{chamber.name}</span>
                       <span className="mt-1 block text-xs font-bold leading-5 text-slate-500">
-                        {form.language === "bn" ? chamber.scheduleBn : chamber.scheduleEn} · {form.language === "bn" ? chamber.timeBn : chamber.timeEn}
+                        {chamber.scheduleEn} · {chamber.timeEn}
                       </span>
                       {form.chamber === chamber.shortName && (
                         <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-[#5B2B6D] px-3 py-1 text-[11px] font-extrabold text-white">
@@ -787,7 +768,7 @@ export function AppointmentForm() {
                   <div>
                     <p className="font-extrabold text-ink">{form.chamber}</p>
                     <p className="text-xs font-semibold text-slate-500">
-                      {copy.availableSlot}: {form.language === "bn" ? selectedChamber.timeBn : selectedChamber.timeEn}
+                      {copy.availableSlot}: {selectedChamber.timeEn}
                     </p>
                     <p className="text-xs font-semibold text-slate-500">{copy.serialHelp}</p>
                   </div>
@@ -945,6 +926,7 @@ function ReelsSection() {
   const { content } = useContext(SiteContext);
   const home = content.home || {};
   const reels = content.reels || [];
+  const reelsSubtitle = "Guidance on fertility, pregnancy and women's health. Hover or tap a card to watch.";
 
   if (!reels.length) return null;
 
@@ -959,7 +941,7 @@ function ReelsSection() {
             </h2>
           </div>
           <p className="max-w-md leading-7 text-slate-600">
-            {home.reelsSubtitle || "Bite-sized guidance on fertility, pregnancy and women's health. Tap a card to watch."}
+            {reelsSubtitle}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
@@ -1448,17 +1430,87 @@ function VideosAndBlog() {
 
 function Contact() {
   const { content } = useContext(SiteContext);
+  const phone = content.profile.phone || "+8801850545737";
+  const phoneHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
+  const socialLinks = [
+    {
+      label: "Facebook",
+      href: "https://www.facebook.com/drkazikhadezafarhin/",
+      icon: Facebook
+    },
+    {
+      label: "Instagram",
+      href: "https://www.instagram.com/",
+      icon: Instagram
+    }
+  ];
+
   return (
-    <footer id="contact" className="bg-ink py-14 text-white">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 md:grid-cols-[1.2fr_0.8fr]">
-        <div>
-          <h2 className="text-3xl font-extrabold">{content.profile.name}</h2>
-          <p className="mt-3 max-w-xl text-white/65">{content.profile.title}</p>
+    <footer id="contact" className="relative overflow-hidden bg-ink text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(241,141,177,0.18),transparent_30%),radial-gradient(circle_at_85%_10%,rgba(180,153,172,0.16),transparent_28%)]" />
+      <div className="relative mx-auto max-w-[1320px] px-4 py-16 lg:px-10">
+        <div className="grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1.15fr_0.85fr_0.85fr]">
+          <div>
+            <p className="font-bold uppercase tracking-wide text-clinic">Contact</p>
+            <h2 className="mt-3 text-3xl font-extrabold leading-tight md:text-4xl">
+              {content.profile.name || "Dr. Kazi Khadeza Farhin"}
+            </h2>
+            <p className="mt-4 max-w-xl leading-7 text-white/65">
+              {content.profile.title || "Gynecology, fertility and pregnancy care specialist"}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-wide text-white/45">Reach Her</p>
+            <div className="mt-5 space-y-4">
+              <a href={phoneHref} className="flex items-center gap-3 text-white/75 transition hover:text-clinic">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-clinic">
+                  <Phone size={18} />
+                </span>
+                <span className="font-bold">{phone}</span>
+              </a>
+              {content.profile.email && (
+                <a href={`mailto:${content.profile.email}`} className="flex items-center gap-3 text-white/75 transition hover:text-clinic">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-clinic">
+                    <Mail size={18} />
+                  </span>
+                  <span className="font-bold">{content.profile.email}</span>
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-wide text-white/45">Follow</p>
+            <div className="mt-5 flex gap-3">
+              {socialLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/10 text-white transition hover:border-clinic hover:bg-clinic hover:text-white"
+                  >
+                    <Icon size={20} />
+                  </a>
+                );
+              })}
+            </div>
+            <a
+              href={phoneHref}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-clinic px-6 py-3 font-extrabold text-white shadow-soft transition hover:-translate-y-0.5"
+            >
+              Call Now <ArrowUpRight size={18} />
+            </a>
+          </div>
         </div>
-        <div className="space-y-3 text-sm text-white/75">
-          <p className="flex items-center gap-3"><Phone size={18} className="text-clinic" /> +8801850545737</p>
-          <p className="flex items-center gap-3"><Mail size={18} className="text-clinic" /> {content.profile.email}</p>
-          <p className="flex items-center gap-3"><Facebook size={18} className="text-clinic" /> Facebook / Dr. Farhin</p>
+
+        <div className="flex flex-col justify-between gap-3 pt-6 text-sm font-semibold text-white/45 md:flex-row md:items-center">
+          <p>&copy; {new Date().getFullYear()} {content.profile.name || "Dr. Kazi Khadeza Farhin"}. All rights reserved.</p>
+          <p>Designed for patient care and appointment support.</p>
         </div>
       </div>
     </footer>
