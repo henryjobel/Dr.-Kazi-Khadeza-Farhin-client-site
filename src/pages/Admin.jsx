@@ -5,6 +5,8 @@ import {
   Award,
   CalendarDays,
   Clapperboard,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileText,
   Home,
@@ -37,6 +39,8 @@ const tabs = [
 ];
 
 const DHAKA_UTC_OFFSET_MINUTES = 6 * 60;
+const NOVA_CHAMBER_KEY = "nova";
+const CRESCENT_CHAMBER_KEY = "crescent";
 
 function getDhakaTodayDateValue() {
   const now = new Date();
@@ -68,8 +72,13 @@ function getShortChamberName(chamber = "") {
   return "Uttara Crescent";
 }
 
+function getChamberTime(chamber = "") {
+  if (/nova/i.test(chamber)) return "2:00 PM - 4:00 PM";
+  return "6:00 PM - 10:00 PM";
+}
+
 function getAppointmentForLabel(chamber = "") {
-  return `Appointment for ${getShortChamberName(chamber)}`;
+  return `Appointment for ${getShortChamberName(chamber)} (${getChamberTime(chamber)})`;
 }
 
 function groupAppointmentsByChamber(items) {
@@ -78,6 +87,98 @@ function groupAppointmentsByChamber(items) {
     if (!groups[label]) groups[label] = [];
     groups[label].push(item);
     return groups;
+  }, {});
+}
+
+function getChamberKey(chamber = "") {
+  return /nova/i.test(chamber) ? NOVA_CHAMBER_KEY : CRESCENT_CHAMBER_KEY;
+}
+
+function getChamberMeta(chamber = "") {
+  const key = getChamberKey(chamber);
+  if (key === NOVA_CHAMBER_KEY) {
+    return {
+      key,
+      label: "Appointment for Nova IVF (2:00 PM - 4:00 PM)",
+      shortLabel: "Nova IVF",
+      timeLabel: "2:00 PM - 4:00 PM",
+      dotClass: "bg-[#5B2B6D]",
+      pillClass: "bg-[#f4e8f8] text-[#5B2B6D]",
+      borderClass: "border-[#5B2B6D]/20"
+    };
+  }
+
+  return {
+    key,
+    label: "Appointment for Uttara Crescent (6:00 PM - 10:00 PM)",
+    shortLabel: "Uttara Crescent",
+    timeLabel: "6:00 PM - 10:00 PM",
+    dotClass: "bg-[#0f766e]",
+    pillClass: "bg-[#e6fffb] text-[#0f766e]",
+    borderClass: "border-[#0f766e]/20"
+  };
+}
+
+function formatAppointmentDate(dateString) {
+  if (!dateString) return "";
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return dateString;
+  }
+}
+
+function getCalendarDays(monthDate) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startDate = new Date(firstDay);
+  startDate.setDate(firstDay.getDate() - startDate.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    return date;
+  });
+}
+
+function formatMonthLabel(date) {
+  return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(date);
+}
+
+function formatPrettyDate(value) {
+  if (!value) return "Select a date";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(date);
+}
+
+function toDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getAppointmentCalendarSummary(items) {
+  return items.reduce((summary, item) => {
+    if (!item?.date) return summary;
+    const key = item.date;
+    if (!summary[key]) {
+      summary[key] = { date: key, total: 0, nova: 0, crescent: 0, items: [] };
+    }
+
+    const chamberKey = getChamberKey(item.chamber);
+    summary[key].total += 1;
+    summary[key][chamberKey] += 1;
+    summary[key].items.push(item);
+
+    return summary;
   }, {});
 }
 
@@ -154,24 +255,63 @@ function LoginScreen({ onLogin }) {
 }
 
 function Dashboard({ content, appointments }) {
+  const [dateFilter, setDateFilter] = useState("");
+  const [chamberFilter, setChamberFilter] = useState("All");
+  
   const pending = appointments.filter((item) => item.status === "Pending").length;
   const novaCount = appointments.filter((item) => /nova/i.test(item.chamber || "")).length;
   const crescentCount = appointments.length - novaCount;
+
+  const filteredAppointments = appointments.filter((item) => {
+    if (dateFilter && item.date !== dateFilter) return false;
+    if (chamberFilter === "Nova IVF" && !/nova/i.test(item.chamber || "")) return false;
+    if (chamberFilter === "Uttara Crescent" && /nova/i.test(item.chamber || "")) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Appointments" value={appointments.length} />
         <Stat label="Pending" value={pending} />
-        <Stat label="Appointment for Nova" value={novaCount} />
-        <Stat label="Appointment for Uttara Crescent" value={crescentCount} />
+        <Stat label="Nova IVF (2:00 PM - 4:00 PM)" value={novaCount} />
+        <Stat label="Uttara Crescent (6:00 PM - 10:00 PM)" value={crescentCount} />
         <Stat label="Blog Posts" value={content.blogs.length} />
         <Stat label="Videos" value={content.videos.length} />
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-extrabold">Recent appointment requests</h3>
-          <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-[#7b6074]">Live preview data</span>
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-3">
+            <h3 className="text-xl font-extrabold">Recent appointment requests</h3>
+            <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+              {["All", "Nova IVF", "Uttara Crescent"].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setChamberFilter(tab)}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                    chamberFilter === tab ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"
+                  }`}
+                >
+                  {tab === "All" ? "All Chambers" : `Appointment for ${tab}`}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <input 
+              type="date" 
+              className="admin-input h-10 py-1"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+            {dateFilter && (
+              <button type="button" onClick={() => setDateFilter("")} className="text-xs text-red-500 font-bold hover:underline">
+                Clear
+              </button>
+            )}
+            <span className="hidden sm:inline-block rounded-full bg-mint px-3 py-1 text-xs font-bold text-[#7b6074]">Live preview data</span>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-left text-sm">
@@ -181,30 +321,41 @@ function Dashboard({ content, appointments }) {
                 <th>Serial</th>
                 <th>Service</th>
                 <th>Chamber</th>
-                <th>Date</th>
-                <th>Booked</th>
+                <th>Appointment Date</th>
+                <th>Booking Time</th>
                 <th>Phone</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {appointments.map((item, index) => (
-                <tr key={`${item.phone}-${index}`} className="font-medium text-slate-700">
-                  <td className="py-4">{item.name}</td>
-                  <td>{item.serialNumber ? `#${item.serialNumber}` : "-"}</td>
-                  <td>{item.service}</td>
-                  <td>
-                    <span className="rounded-full bg-[#fff8fb] px-3 py-1 text-xs font-extrabold text-[#7b6074]">
-                      {getAppointmentForLabel(item.chamber)}
-                    </span>
-                    <p className="mt-1 text-xs font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+              {filteredAppointments.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="py-8 text-center font-medium text-slate-500">
+                    No appointments found for the selected date.
                   </td>
-                  <td>{item.date}</td>
-                  <td>{formatDhakaBookingTime(item.createdAt)}</td>
-                  <td>{item.phone}</td>
-                  <td><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{item.status}</span></td>
                 </tr>
-              ))}
+              ) : (
+                filteredAppointments.map((item, index) => (
+                  <tr key={`${item.phone}-${index}`} className="font-medium text-slate-700">
+                    <td className="py-4">{item.name}</td>
+                    <td>{item.serialNumber ? `#${item.serialNumber}` : "-"}</td>
+                    <td>{item.service}</td>
+                    <td>
+                      <span className="rounded-full bg-[#fff8fb] px-3 py-1 text-xs font-extrabold text-[#7b6074]">
+                        {getAppointmentForLabel(item.chamber)}
+                      </span>
+                      <p className="mt-1 text-xs font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+                    </td>
+                    <td>
+                      <p className="font-bold text-ink">{formatAppointmentDate(item.date)}</p>
+                      <p className="text-xs font-semibold text-slate-500">{getChamberMeta(item.chamber).timeLabel}</p>
+                    </td>
+                    <td>{formatDhakaBookingTime(item.createdAt)}</td>
+                    <td>{item.phone}</td>
+                    <td><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{item.status}</span></td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -973,11 +1124,26 @@ function SeoEditor({ content, setContent, token, onAuthError }) {
 
 function AppointmentManager({ appointments, setAppointments, token }) {
   const today = getDhakaTodayDateValue();
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(`${today}T00:00:00`));
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [activeTab, setActiveTab] = useState("All Chambers");
   const todaysAppointments = sortByDailySerial(appointments.filter((item) => item.date === today));
   const groupedAppointments = groupAppointmentsByChamber(sortByDailySerial(appointments));
   const todayGroups = groupAppointmentsByChamber(todaysAppointments);
+  const calendarDays = useMemo(() => getCalendarDays(calendarMonth), [calendarMonth]);
+  const monthLabel = useMemo(() => formatMonthLabel(calendarMonth), [calendarMonth]);
+  const calendarSummary = useMemo(() => getAppointmentCalendarSummary(appointments), [appointments]);
+  const selectedDayAppointments = useMemo(
+    () => sortByDailySerial(appointments.filter((item) => item.date === selectedDate)),
+    [appointments, selectedDate]
+  );
+  const selectedDayGroups = useMemo(
+    () => groupAppointmentsByChamber(selectedDayAppointments),
+    [selectedDayAppointments]
+  );
+  const selectedDaySummary = calendarSummary[selectedDate];
 
-  function downloadTodaysSerialPdf() {
+  function downloadSelectedDaySerialPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -998,10 +1164,10 @@ function AppointmentManager({ appointments, setAppointments, token }) {
     function addHeader() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("Today Appointment Serial List", margin, 42);
+      doc.text(`Appointment Serial List (${selectedDate})`, margin, 42);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(`Date: ${today} | Total: ${todaysAppointments.length}`, margin, 60);
+      doc.text(`Date: ${selectedDate} | Total: ${selectedDayAppointments.length}`, margin, 60);
       doc.setDrawColor(226, 232, 240);
       doc.line(margin, 76, pageWidth - margin, 76);
       doc.setFont("helvetica", "bold");
@@ -1013,12 +1179,12 @@ function AppointmentManager({ appointments, setAppointments, token }) {
 
     addHeader();
 
-    if (!todaysAppointments.length) {
+    if (!selectedDayAppointments.length) {
       doc.setFontSize(12);
-      doc.text("No appointments booked for today.", margin, y + 18);
+      doc.text(`No appointments booked for ${selectedDate}.`, margin, y + 18);
     } else {
       doc.setFontSize(8.5);
-      todaysAppointments.forEach((item, index) => {
+      selectedDayAppointments.forEach((item, index) => {
         const row = [
           item.serialNumber ? `#${item.serialNumber}` : `${index + 1}`,
           item.name || "-",
@@ -1049,7 +1215,7 @@ function AppointmentManager({ appointments, setAppointments, token }) {
       });
     }
 
-    doc.save(`today-appointment-serials-${today}.pdf`);
+    doc.save(`appointment-serials-${selectedDate}.pdf`);
   }
 
   async function updateStatus(index, status) {
@@ -1067,58 +1233,244 @@ function AppointmentManager({ appointments, setAppointments, token }) {
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl font-extrabold">Appointment requests</h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Today: {todaysAppointments.length} serials
-            {Object.entries(todayGroups).map(([label, items]) => ` | ${label}: ${items.length}`).join("")}
+            Selected Date: {selectedDayAppointments.length} serials
+            {Object.entries(selectedDayGroups).map(([label, items]) => ` | ${label}: ${items.length}`).join("")}
           </p>
         </div>
-        <button onClick={downloadTodaysSerialPdf} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white">
-          <Download size={16} /> Today PDF
+        <button onClick={downloadSelectedDaySerialPdf} className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-bold text-white">
+          <Download size={16} /> Download PDF
         </button>
       </div>
-      <div className="space-y-3">
-        {Object.entries(groupedAppointments).map(([label, items]) => (
-          <section key={label} className="space-y-3 rounded-3xl border border-slate-100 p-3">
-            <div className="flex items-center justify-between rounded-2xl bg-[#fff8fb] px-4 py-3">
-              <h4 className="font-extrabold text-ink">{label}</h4>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#7b6074]">{items.length} requests</span>
+
+      <div className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
+        <div className="rounded-[28px] border border-slate-100 bg-[#fcfcfe] p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-wide text-clinic">Monthly overview</p>
+              <h4 className="text-2xl font-extrabold text-ink">{monthLabel}</h4>
             </div>
-            {items.map((item) => {
-              const index = appointments.findIndex((row) => row === item || row._id === item._id);
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#5B2B6D] shadow-sm transition hover:bg-[#fff8fb]"
+                aria-label="Previous month"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#5B2B6D] shadow-sm transition hover:bg-[#fff8fb]"
+                aria-label="Next month"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 grid grid-cols-7 gap-2 text-center text-[11px] font-extrabold uppercase tracking-wide text-slate-400">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {calendarDays.map((day) => {
+              const value = toDateValue(day);
+              const isSelected = value === selectedDate;
+              const isOutside = day.getMonth() !== calendarMonth.getMonth();
+              const summary = calendarSummary[value];
 
               return (
-                <div key={item._id || `${item.phone}-${item.date}-${item.serialNumber}`} className="grid gap-3 rounded-2xl border border-slate-100 p-4 md:grid-cols-[88px_1fr_1fr_1fr_140px_160px] md:items-center">
-                  <div className="rounded-2xl bg-[#fff8fb] px-3 py-2 text-center">
-                    <p className="text-[11px] font-extrabold uppercase text-[#7b6074]">Serial</p>
-                    <p className="text-lg font-extrabold text-ink">{item.serialNumber ? `#${item.serialNumber}` : "-"}</p>
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate(value);
+                    setCalendarMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+                  }}
+                  className={`min-h-[96px] rounded-2xl border p-2 text-left transition ${
+                    isSelected
+                      ? "border-[#5B2B6D] bg-[#fff8fb] shadow-sm"
+                      : "border-slate-100 bg-white hover:border-[#5B2B6D]/30 hover:bg-[#fffefc]"
+                  } ${isOutside ? "opacity-55" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className={`text-sm font-extrabold ${isSelected ? "text-[#5B2B6D]" : "text-ink"}`}>{day.getDate()}</span>
+                    {summary && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600">
+                        {summary.total}
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-extrabold">{item.name}</p>
-                    <p className="text-sm text-slate-500">{item.phone}{item.age ? ` | Age ${item.age}` : ""}</p>
+                  <div className="mt-2 space-y-1">
+                    {summary?.nova > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                        <span className="h-2 w-2 rounded-full bg-[#5B2B6D]" />
+                        Nova IVF: {summary.nova}
+                      </div>
+                    )}
+                    {summary?.crescent > 0 && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                        <span className="h-2 w-2 rounded-full bg-[#0f766e]" />
+                        Uttara: {summary.crescent}
+                      </div>
+                    )}
                   </div>
-                  <p className="font-semibold text-slate-700">{item.service}</p>
-                  <div>
-                    <p className="text-sm font-extrabold text-[#7b6074]">{getAppointmentForLabel(item.chamber)}</p>
-                    <p className="text-xs font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-[28px] border border-slate-100 bg-white p-5">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-wide text-clinic">Selected day</p>
+            <h4 className="mt-1 text-2xl font-extrabold text-ink">{formatPrettyDate(selectedDate)}</h4>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              Total appointments: {selectedDaySummary?.total || 0}
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-3xl border border-[#5B2B6D]/15 bg-[#fff8fb] p-4">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-[#5B2B6D]">Nova IVF</p>
+              <p className="mt-2 text-3xl font-extrabold text-ink">{selectedDaySummary?.nova || 0}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Appointment for Nova IVF</p>
+            </div>
+            <div className="rounded-3xl border border-[#0f766e]/15 bg-[#f0fdfa] p-4">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-[#0f766e]">Uttara Crescent</p>
+              <p className="mt-2 text-3xl font-extrabold text-ink">{selectedDaySummary?.crescent || 0}</p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">Appointment for Uttara Crescent</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#f4e8f8] px-3 py-1.5 text-xs font-bold text-[#5B2B6D]">
+              <span className="h-2 w-2 rounded-full bg-[#5B2B6D]" /> Nova IVF
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#e6fffb] px-3 py-1.5 text-xs font-bold text-[#0f766e]">
+              <span className="h-2 w-2 rounded-full bg-[#0f766e]" /> Uttara Crescent
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {(selectedDayAppointments.length ? Object.entries(selectedDayGroups) : Object.entries(groupedAppointments)).map(([label, items]) => (
+              <section key={label} className="rounded-3xl border border-slate-100 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h5 className="font-extrabold text-ink">{label}</h5>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-600">{items.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {items.slice(0, 4).map((item) => {
+                    const meta = getChamberMeta(item.chamber);
+                    return (
+                      <div key={item._id || `${item.phone}-${item.date}-${item.serialNumber}`} className={`rounded-2xl border ${meta.borderClass} bg-white p-3`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-ink">{item.name || "Unnamed patient"}</p>
+                            <p className="text-xs font-semibold text-slate-500">
+                              {item.date} | {item.serialNumber ? `#${item.serialNumber}` : "No serial"}
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${meta.pillClass}`}>
+                            {meta.shortLabel}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {items.length > 4 && (
+                    <p className="text-xs font-semibold text-slate-400">+ {items.length - 4} more</p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+          {["All Chambers", ...Object.keys(selectedDayGroups)].map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
+                activeTab === tab ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-3">
+        {selectedDayAppointments.length === 0 ? (
+          <p className="rounded-2xl bg-[#fff8fb] p-6 text-center font-bold text-slate-500">
+            No appointments booked for this selected date.
+          </p>
+        ) : (
+          Object.entries(selectedDayGroups)
+            .filter(([label]) => activeTab === "All Chambers" || label === activeTab)
+            .map(([label, items]) => (
+            <section key={label} className="space-y-3 rounded-3xl border border-slate-100 p-3">
+              <div className="flex items-center justify-between rounded-2xl bg-[#fff8fb] px-4 py-3">
+                <h4 className="font-extrabold text-ink">{label}</h4>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#7b6074]">{items.length} requests</span>
+              </div>
+              {items.map((item) => {
+                const index = appointments.findIndex((row) => row === item || row._id === item._id);
+                const meta = getChamberMeta(item.chamber);
+
+                return (
+                <div key={item._id || `${item.phone}-${item.date}-${item.serialNumber}`} className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[76px_1.2fr_1.3fr_1.4fr_140px] md:items-start">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-3 text-center">
+                    <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Serial</p>
+                    <p className="mt-1 text-xl font-extrabold text-ink">{item.serialNumber ? `#${item.serialNumber}` : "-"}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-500">{item.date}</p>
-                    <p className="text-xs font-semibold text-slate-400">Booked: {formatDhakaBookingTime(item.createdAt)}</p>
+                  <div className="pt-1">
+                    <p className="text-base font-extrabold text-ink">{item.name || "Unnamed patient"}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">{item.phone}</p>
+                    {item.age && <p className="mt-1 text-xs font-semibold text-slate-400">Age {item.age}</p>}
                   </div>
-                  <select className="admin-input" value={item.status} onChange={(e) => updateStatus(index, e.target.value)}>
-                    <option>Pending</option>
-                    <option>Confirmed</option>
-                    <option>Completed</option>
-                    <option>Cancelled</option>
-                  </select>
+                  <div className="pt-1">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${meta.pillClass}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`} />
+                      {meta.shortLabel}
+                    </span>
+                    <p className="mt-2.5 text-xs font-bold text-slate-700">{item.service}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-400">{item.chamber || "Uttara Crescent Clinic & Hospital"}</p>
+                  </div>
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Appointment</p>
+                      <p className="text-sm font-bold text-ink">{formatAppointmentDate(item.date)}</p>
+                      <p className="text-xs font-semibold text-slate-500">{meta.timeLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Booked On</p>
+                      <p className="text-xs font-semibold text-slate-500">{formatDhakaBookingTime(item.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="pt-1">
+                    <select className="admin-input h-11 text-sm font-bold shadow-sm" value={item.status} onChange={(e) => updateStatus(index, e.target.value)}>
+                      <option>Pending</option>
+                      <option>Confirmed</option>
+                      <option>Completed</option>
+                      <option>Cancelled</option>
+                    </select>
+                  </div>
                 </div>
               );
             })}
           </section>
-        ))}
+        ))
+      )}
+        </div>
       </div>
     </div>
   );

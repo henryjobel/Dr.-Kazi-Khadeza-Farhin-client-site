@@ -438,6 +438,7 @@ export function AppointmentForm() {
     [defaultChamber, form.chamber]
   );
   const copy = APPOINTMENT_COPY.en;
+  const [honeypot, setHoneypot] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(() => parseDateValue(form.date));
   const calendarDays = useMemo(() => getCalendarDays(calendarMonth), [calendarMonth]);
   const monthLabel = useMemo(
@@ -469,6 +470,28 @@ export function AppointmentForm() {
   async function submit(e) {
     e.preventDefault();
     if (submitInFlightRef.current) return;
+    
+    // 1. Honeypot check: If a bot fills this hidden field, fail silently.
+    if (honeypot) {
+      setNotice(copy.successTitle);
+      setForm({
+        name: "",
+        phone: "",
+        age: "",
+        chamber: defaultChamber.shortName,
+        service: serviceOptions[0] || "",
+        date: getNextAvailableDate(defaultChamber),
+        message: "",
+        language: "en"
+      });
+      return;
+    }
+
+    // 2. Strict Phone Validation (Bangladesh formats: 013-019 followed by 8 digits)
+    if (!/^01[3-9]\d{8}$/.test(form.phone)) {
+      setNotice("Please enter a valid 11-digit Bangladeshi phone number (e.g., 017XXXXXXXX).");
+      return;
+    }
 
     const earliest = getEarliestBookableDate(selectedChamber);
     const nextAvailableDate = getNextAvailableDate(selectedChamber, earliest);
@@ -632,13 +655,22 @@ export function AppointmentForm() {
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  name="user_website_url"
+                  style={{ display: 'none' }}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-600">{copy.patientName}</span>
                   <input className="admin-input h-14" placeholder={copy.patientNamePlaceholder} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-600">{copy.phoneNumber}</span>
-                  <input className="admin-input h-14" placeholder="01XXXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                  <input className="admin-input h-14" type="tel" pattern="^01[3-9]\d{8}$" minLength={11} maxLength={11} placeholder="01XXXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-600">{copy.age}</span>
